@@ -6,57 +6,57 @@
  * @date: 27/09/14
  */
 
-#include <exception>
-#include <iostream>
-#include <list>
-#include <sstream>
-#include <string>
-#include <unistd.h>
-#include <utility>
-#include <vector>
+#include "../include/headers.h"
 
-#include "../include/hungarian.h"
-
-#include "Instance.h"
-#include "Util.h"
-
-struct Node {
-    unsigned solution;
-    int n;
+std::vector<int> getVectorSolution(int ** matrix, int dim) {
+    int i, j;
+    std::vector<bool> visited;
     std::vector<int> route;
-    std::vector<std::pair<int,int>> arrows;
-    std::vector<std::pair<int,int>> prohibited;
-    /* 
-     *     Node& operator=(Node l) // copy assignment
-     *     {
-     *         n = l.n;
-     *         parent = l.parent;
-     *         solution = l.solution;
-     * 
-     *         route.swap(l.route);
-     *         arrows.swap(l.arrows);
-     *         prohibited.swap(l.prohibited);
-     * 
-     *         return *this;
-     *     }
-     */
 
-};
-
-void printNode(const Node& node) {
-
-    std::cout << std::endl << "Node " << &node << " " << node.n << "solution: " << &(node.solution) << " " << node.solution << std::endl;
-    std::cout << "Route " << &node.route << std::endl;
-    tsp::printRoute(node.route);
-    std::cout << "Arrows " << &node.arrows << std::endl;
-    for (unsigned i = 0; i < node.arrows.size(); i++) {
-        std::cout << node.arrows[i].first << " " << node.arrows[i].second << ", ";
+    for (i = 0; i < dim; i++) {
+        visited.push_back(false);
     }
-    std::cout << std::endl << "Prohibited " << std::endl;
-    for (unsigned i = 0; i < node.prohibited.size(); i++) {
-        std::cout << node.prohibited[i].first << " " << node.prohibited[i].second << ", ";
+
+    // partindo da primeira cidade
+    route.push_back(0);
+    for (i = 0; i < dim; i++) {
+        if (visited[i])
+            continue;
+
+        if (route.back()!=i) {
+            route.push_back(i);
+        }
+        visited[i] = true;
+
+        for (j = 0; j < dim; j++) {
+            if (matrix[i][j] == 1) {
+                route.push_back(j);
+                visited[true];
+                i = j - 1;
+                break;
+            } 
+        }
     }
-    std::cout << std::endl;
+    return route;
+}
+
+std::vector<int> hungarian(Node& nodeCurr, double ** matrix, const int dim) {
+    int mode;
+    std::vector<int> vCycle;
+
+    // chamada ao hungaro para resolucao do problema de assignment
+    hungarian_problem_t p;
+    mode = HUNGARIAN_MODE_MINIMIZE_COST;
+    hungarian_init(&p, matrix, dim, dim, mode);
+    nodeCurr.solution = hungarian_solve(&p);
+    // converte matrix binaria da solucao para rota (possivelmente c/ subciclo)
+    nodeCurr.route = getVectorSolution(p.assignment, dim);
+    // verifica ciclo e armazena como vetor de pares (arcos a serem proibidos)
+    verifyCycle(nodeCurr.route, vCycle, nodeCurr.arrows, dim);
+    // finaliza hungaro
+    hungarian_free(&p);
+
+    return vCycle;
 }
 
 void verifyCycle(std::vector<int> &sol, std::vector<int> &cycle, std::vector< std::pair<int,int> > &cycleArrows, unsigned dim) {
@@ -100,174 +100,114 @@ void verifyCycle(std::vector<int> &sol, std::vector<int> &cycle, std::vector< st
     }
 }
 
-std::vector<int> getVectorSolution(int ** matrix, int dim) {
-    int i, j;
-    std::vector<bool> visited;
-    std::vector<int> route;
-
-    for (i = 0; i < dim; i++) {
-        visited.push_back(false);
+bool isRootOptimal(Node& root, const unsigned dim, std::vector<int>& vCycle, unsigned& lb, unsigned& ub) {
+    // define lower bound
+    lb = root.solution;
+    // assignment equivalente a um tour completo = solucao viavel ao TSP
+    if (isValidCH(vCycle, dim)) {
+        ub = root.solution;
+        return true;
     }
-
-    // partindo da primeira cidade
-    route.push_back(0);
-    for (i = 0; i < dim; i++) {
-        if (visited[i])
-            continue;
-
-        if (route.back()!=i) {
-            route.push_back(i);
-        }
-        visited[i] = true;
-
-        for (j = 0; j < dim; j++) {
-            if (matrix[i][j] == 1) {
-                route.push_back(j);
-                visited[true];
-                i = j - 1;
-                break;
-            } 
-        }
-    }
-    return route;
+    return false;
 }
 
-std::vector<int> best;
 /**
- * Algoritmo Branch-and-bound
- * Usando busca em largura
+ * Branch-and-bound
  */
-void bnb(std::vector<Node *>& nodes, const int ** matrix, unsigned dim, unsigned& lb, unsigned& ub) {
-    bool firstTime = false;
-    double ** cMatrix = new double * [dim];
-    int mode;
-    std::vector<int> vCycle;
-    unsigned i, j, nChild = 0;
+Node bnb(std::vector<Node>& nodes, const int ** matrix, unsigned dim, unsigned& lb, unsigned& ub) {
+    double ** dMatrix = copyMatrix2Double(matrix, dim);
+    unsigned i, nChild = 0;
 
-    Node *nodeAux;
-    Node *nodeCurr = NULL;
-
-    // primeira execucao
-    if (nodes.empty()) {
-        nodeCurr = new Node;
-        nodeCurr->n = 0;
-        firstTime = true;
-        std::cout << "first time" << std::endl;
-    } else {
-        nodeCurr = nodes.front();
-    }
-
-    // copia matrix de custos para double, usado pelo hungaro
-    for (i = 0; i < dim; i++) {
-        cMatrix[i] = new double[dim];
-        for (j = 0; j < dim; j++) {
-            if (i==j) {
-                // inviabiliza a -> a
-                cMatrix[i][j] = std::numeric_limits<int>::max();
-            } else {
-                cMatrix[i][j] = matrix[i][j];
-            }
-        }
-    }
+    Node nodeAux;
+    Node nodeCurr = nodes.back(); // DFS
+    nodes.pop_back();
+    std::cout << nodeCurr.n << std::endl;
 
     // inviabiliza o uso dos arcos proibidos
-    for (i = 0; i < nodeCurr->prohibited.size(); i++) {
-        cMatrix[nodeCurr->prohibited[i].first]
-            [nodeCurr->prohibited[i].second] = std::numeric_limits<int>::max();
+    for (i = 0; i < nodeCurr.prohibited.size(); i++) {
+        dMatrix[nodeCurr.prohibited[i].first]
+            [nodeCurr.prohibited[i].second] = std::numeric_limits<int>::max();
     }
 
-    // chamada ao hungaro para resolucao do problema de assignment
-    hungarian_problem_t p;
-    mode = HUNGARIAN_MODE_MINIMIZE_COST;
-    hungarian_init(&p, cMatrix, dim, dim, mode);
-    nodeCurr->solution = hungarian_solve(&p);
-    // converte matrix binaria da solucao para rota (possivelmente c/ subciclo)
-    nodeCurr->route = getVectorSolution(p.assignment, dim);
-    // verifica ciclo e armazena como vetor de pares (arcos a serem proibidos)
-    verifyCycle(nodeCurr->route, vCycle, nodeCurr->arrows, dim);
-
-    // finaliza hungaro
-    hungarian_free(&p);
-
-    // primeira solucao do assignment 
-    if (firstTime) {
-        // assignment equivalente a um tour completo = solucao viavel ao TSP
-        if (nodeCurr->route.size() == dim + 1 && vCycle.size() == dim + 1) {
-            ub = nodeCurr->solution;
-            std::cout << "Solucao otima encontrada! " << std::endl;
-            tsp::printVector<int>(nodeCurr->route);
-        }
-        // define lower bound
-        lb = nodeCurr->solution;
-    }
+    std::vector<int> vCycle = hungarian(nodeCurr, dMatrix, dim);
 
     // branch-and-bound
-    if (nodeCurr->route.size() > dim + 1 && nodeCurr->solution < ub) {
+    if (nodeCurr.route.size() > dim + 1 && nodeCurr.solution < ub) {
         // cada novo no eh uma copia do no atual adicionado de um dos arcos como proibidos
-        for (i = 0; i < nodeCurr->arrows.size(); i++) {
-            nodeAux = new Node;
-            nodeAux->n = (int) nodes.size() + i;
-            nodeAux->solution = nodeCurr->solution;
-            nodeAux->route = nodeCurr->route;
-            nodeAux->arrows = nodeCurr->arrows;
-            nodeAux->prohibited = nodeCurr->prohibited;
-            nodeAux->prohibited.push_back(nodeCurr->arrows[i]);
+        for (i = 0; i < nodeCurr.arrows.size(); i++) {
+            nodeAux.n = (int) nodes.back().n + 1 + i;
+            nodeAux.solution = nodeCurr.solution;
+            nodeAux.route = nodeCurr.route;
+            nodeAux.arrows = nodeCurr.arrows;
+            nodeAux.prohibited = nodeCurr.prohibited;
+            nodeAux.prohibited.push_back(nodeCurr.arrows[i]);
             nodes.push_back(nodeAux);
             nChild++;
         }
-        //std::cout << "branching de fator " << nChild << std::endl;
-    } else if (nodeCurr->route.size() == dim + 1 && nodeCurr->solution >= lb && nodeCurr->solution < ub) {
-        std::cout << "novo best" << std::endl;
-        best.swap(nodeCurr->route);
-        ub = nodeCurr->solution;
-        int s = 0;
-        std::vector<Node *>::iterator prev, it = nodes.begin();
-        it++;
-        while (it != nodes.end()) {
-            if ((*it)->solution >= ub) {
-                delete *it;
-                nodes.erase(it);
-                it--;
-                s++;
+        //          std::cout << "branching de " << nChild << std::endl;
+    } else { 
+        if (nodeCurr.route.size() == dim + 1 && nodeCurr.solution >= lb && nodeCurr.solution < ub) {
+            std::cout << "Novo valor Upper Bound" << std::endl;
+            //                best.swap(nodeCurr.route);
+            ub = nodeCurr.solution;
+            int s = 0;
+            std::vector<Node>::iterator prev, it = nodes.begin();
+            while (it != nodes.end()) {
+                if (it->solution >= ub) {
+                    nodes.erase(it);
+                    it--;
+                    s++;
+                }
+                it++;
             }
-            it++;
+            std::cout << s << " nos eliminados por bound, |nodes| = " << nodes.size() << std::endl;
+            tsp::printVector<int>(nodeCurr.route);
         }
-        std::cout << s << " nos eliminados por bound, |nodes| = " << nodes.size() << std::endl;
-        tsp::printVector<int>(nodeCurr->route);
     }
 
-    if(!firstTime) {
-        delete *(nodes.begin());
-        nodes.erase(nodes.begin());
-    }
-
-    // desaloca memoria
-    for (i = 0; i < dim; i++) {
-        delete[] cMatrix[i];
-    }
-    delete[] cMatrix;
-
+    free<double>(dMatrix, dim);
+    return nodeCurr;
 }
 
+void initBranchAndBound(const int ** matrix, const unsigned dim) {
+    std::vector<Node> nodes;
+    Node nodeCurr;
+    unsigned i;
+    unsigned lb, ub = 1234567;
+
+    double ** dMatrix = copyMatrix2Double(matrix, dim);
+
+    // raiz
+    nodeCurr.n = 0;
+    std::vector<int> vCycle = hungarian(nodeCurr, dMatrix, dim);
+    if (isRootOptimal(nodeCurr, dim, vCycle, lb, ub)) {
+        std::cout << "Solucao otima encontrada! " << std::endl;
+        tsp::printVector<int>(nodeCurr.route);
+        return;
+    } else {
+        nodes.push_back(nodeCurr);
+    }
+    free<double>(dMatrix, dim);
+
+    // comeca branch-and-bound
+    i = 0;
+    while (!nodes.empty()) {
+        i++;
+        nodeCurr = bnb(nodes, matrix, dim, lb, ub);
+        std::cout << "(" << i << ") LB= " << lb << ", UB=" << ub << std::endl;
+        std::cout << "|nodes| = " << nodes.size() << std::endl;
+    }
+    std::cout << tsp::cost(nodeCurr.route, matrix) << std::endl;
+}
 
 int main(int argc, char *argv[]) {
     std::string file = "";
     std::stringstream ss;
-    std::vector<Node *> nodes;
-    unsigned lb, ub;
-
-    //Node *root = new Node;
 
     if (argc >= 2) {
-        if (argc >= 3) {
-            ss.str(argv[2]);
-            ss >> lb;
-        } else {
-            lb = 0;
-        }
         file.assign(argv[1]);
     } else {
-        std::cout << "Uso " << argv[0] << " arquivo_entrada [lb] " << std::endl;
+        std::cout << "Uso " << argv[0] << " arquivo_entrada" << std::endl;
         return 1;
     }
 
@@ -285,21 +225,48 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    Node aux;
-    ub = 118361;// std::numeric_limits<int>::max();
-    int i = 0;
-    do {
-        i++;
-        bnb(nodes, instance.getMatrix(), instance.getDim(), lb, ub);
-        std::cout << "Lista de nos a serem expandidos..." << std::endl;
-        for(int k=0; k<nodes.size(); k++) {
-            printNode(*nodes[k]);
+    initBranchAndBound(instance.getMatrix(), instance.getDim());
+    std::cout << "OK" << std::endl;
+
+    return 0;
+}
+
+double ** copyMatrix2Double(const int ** matrix, const unsigned dim) {
+    double ** dMatrix = new double * [dim];
+    unsigned i, j;
+    for (i = 0; i < dim; i++) {
+        dMatrix[i] = new double[dim];
+        for (j = 0; j < dim; j++) {
+            if (i==j)
+                dMatrix[i][j] = std::numeric_limits<int>::max();
+            else
+                dMatrix[i][j] = matrix[i][j];
         }
-        if (i%500==0) {
-            std::cout << "(" << i << ") LB= " << lb << ", UB=" << ub << std::endl;
-            std::cout << "|nodes| = " << nodes.size() << std::endl;
-        }
-        usleep(1000000);
-    } while (!nodes.empty());
-    std::cout << 299;
+    }
+    return dMatrix;
+}
+
+template<typename type> 
+void free(type ** matrix, const unsigned dim) {
+    unsigned i;
+    for (i = 0; i < dim; i++) {
+        delete[] matrix[i];
+    }
+    delete[] matrix;
+}
+
+void printNode(const Node& node) {
+
+    std::cout << std::endl << "Node " << &node << " " << node.n << "solution: " << &(node.solution) << " " << node.solution << std::endl;
+    std::cout << "Route " << &node.route << std::endl;
+    tsp::printRoute(node.route);
+    std::cout << "Arrows " << &node.arrows << std::endl;
+    for (unsigned i = 0; i < node.arrows.size(); i++) {
+        std::cout << node.arrows[i].first << " " << node.arrows[i].second << ", ";
+    }
+    std::cout << std::endl << "Prohibited " << std::endl;
+    for (unsigned i = 0; i < node.prohibited.size(); i++) {
+        std::cout << node.prohibited[i].first << " " << node.prohibited[i].second << ", ";
+    }
+    std::cout << std::endl;
 }

@@ -1,7 +1,2 @@
-*.o
-tsp
-*.swp
-bin/
-imper/obj
-*.gch
-*.d
+obj/*
+bnb
