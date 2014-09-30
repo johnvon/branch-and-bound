@@ -20,24 +20,26 @@
 #include "Instance.h"
 #include "Util.h"
 
-struct Node {
-    unsigned solution;
+class Node {
+    public:
+    unsigned cost;
     int n;
     std::vector<int> route;
     std::vector<std::pair<int,int>> arrows;
     std::vector<std::pair<int,int>> prohibited;
 
-    Node& operator=(Node l) // copy assignment
-    {
-        n = l.n;
-        solution = l.solution;
-
-        route.swap(l.route);
-        arrows.swap(l.arrows);
-        prohibited.swap(l.prohibited);
-
-        return *this;
-    }
+/*     Node operator=(Node l) // copy assignment
+ *     {
+ *         n = l.n;
+ *         cost = l.cost;
+ * 
+ *         route.swap(l.route);
+ *         arrows.swap(l.arrows);
+ *         prohibited.swap(l.prohibited);
+ * 
+ *         return *this;
+ *     }
+ */
 };
 
 double ** copyMatrix2Double(const int ** matrix, const unsigned dim);
@@ -46,7 +48,7 @@ inline bool isValidCH(std::vector<int>& vCycle, const unsigned dim) {
 }
 std::vector<int> getVectorSolution(int ** matrix, int dim);
 std::vector<int> hungarian(Node& nodeCurr, const double ** matrix, const int dim);
-Node bnb(std::vector<Node>& nodes, const int ** matrix, unsigned dim, unsigned& lb, unsigned& ub);
+void bnb(std::vector<Node>& nodes, const int ** matrix, unsigned dim, unsigned& lb, unsigned& ub);
 
 template<typename type> 
 void free(type ** matrix, const unsigned dim);

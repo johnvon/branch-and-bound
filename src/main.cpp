@@ -48,7 +48,7 @@ std::vector<int> hungarian(Node& nodeCurr, double ** matrix, const int dim) {
     hungarian_problem_t p;
     mode = HUNGARIAN_MODE_MINIMIZE_COST;
     hungarian_init(&p, matrix, dim, dim, mode);
-    nodeCurr.solution = hungarian_solve(&p);
+    nodeCurr.cost = hungarian_solve(&p);
     // converte matrix binaria da solucao para rota (possivelmente c/ subciclo)
     nodeCurr.route = getVectorSolution(p.assignment, dim);
     // verifica ciclo e armazena como vetor de pares (arcos a serem proibidos)
@@ -59,10 +59,12 @@ std::vector<int> hungarian(Node& nodeCurr, double ** matrix, const int dim) {
     return vCycle;
 }
 
+void verifyCycle2() {
+}
+
 void verifyCycle(std::vector<int> &sol, std::vector<int> &cycle, std::vector< std::pair<int,int> > &cycleArrows, unsigned dim) {
     bool cDetected = false;
-    int cSize = -1;
-    unsigned cBegin = 0, cBeginTemp = 0, i;
+    int cSize = -1, cBegin = 0, cBeginTemp = 0, i;
 
     // busca menor ciclo na rota
     if (sol.size() > dim + 1) {
@@ -74,7 +76,7 @@ void verifyCycle(std::vector<int> &sol, std::vector<int> &cycle, std::vector< st
                 if (sol[i] == sol[cBeginTemp]) {
                     cDetected = true;
                     // se encontrou ciclo menor ou primeiro ciclo
-                    if ((int) (i - cBeginTemp) < (int) cSize || (cSize == -1)) {
+                    if ((i - cBeginTemp) < cSize || (cSize == -1)) {
                         cBegin = cBeginTemp;
                         cSize = i - cBeginTemp;
                     }
@@ -86,14 +88,14 @@ void verifyCycle(std::vector<int> &sol, std::vector<int> &cycle, std::vector< st
     cycle.clear();
     cycleArrows.clear();
 
+    // intervalo da rota com ciclo
+    for (i = cBegin; i <= cBegin + cSize; i++) {
+        cycle.push_back(sol[i]);
+    }
+
     // clientes/cidades pertencentes ao intervalo
     // e respectivos arcos
-    if (sol.size() > dim + 1) {
-        // intervalo da rota com ciclo
-        for (i = cBegin; i <= cBegin + cSize; i++) {
-            cycle.push_back(sol[i]);
-        }
-
+    if (sol.size() - dim > 1) {
         for (i = 0; i < cycle.size() - 1; i++) {
             cycleArrows.push_back(std::make_pair(cycle[i], cycle[i+1]));
         }
@@ -102,78 +104,105 @@ void verifyCycle(std::vector<int> &sol, std::vector<int> &cycle, std::vector< st
 
 bool isRootOptimal(Node& root, const unsigned dim, std::vector<int>& vCycle, unsigned& lb, unsigned& ub) {
     // define lower bound
-    lb = root.solution;
+    lb = root.cost;
     // assignment equivalente a um tour completo = solucao viavel ao TSP
     if (isValidCH(vCycle, dim)) {
-        ub = root.solution;
+        ub = root.cost;
         return true;
     }
     return false;
 }
 
+std::vector<int> bestRoute;
+int bestCost;
+
 /**
  * Branch-and-bound
  */
-Node bnb(std::vector<Node>& nodes, const int ** matrix, unsigned dim, unsigned& lb, unsigned& ub) {
-    double ** dMatrix = copyMatrix2Double(matrix, dim);
-    unsigned i, nChild = 0;
+void bnb(std::vector<Node>& nodes, const int ** matrix, unsigned dim, unsigned& lb, unsigned& ub) {
+    while (!nodes.empty()) {
+        double ** dMatrix = copyMatrix2Double(matrix, dim);
+        unsigned i, j, nChild = 0, s;
 
-    Node nodeAux;
-    Node nodeCurr = nodes.back(); // DFS
-    nodes.pop_back();
-    std::cout << nodeCurr.n << std::endl;
-
-    // inviabiliza o uso dos arcos proibidos
-    for (i = 0; i < nodeCurr.prohibited.size(); i++) {
-        dMatrix[nodeCurr.prohibited[i].first]
-            [nodeCurr.prohibited[i].second] = std::numeric_limits<int>::max();
-    }
-
-    std::vector<int> vCycle = hungarian(nodeCurr, dMatrix, dim);
-
-    // branch-and-bound
-    if (nodeCurr.route.size() > dim + 1 && nodeCurr.solution < ub) {
-        // cada novo no eh uma copia do no atual adicionado de um dos arcos como proibidos
-        for (i = 0; i < nodeCurr.arrows.size(); i++) {
-            nodeAux.n = (int) nodes.back().n + 1 + i;
-            nodeAux.solution = nodeCurr.solution;
-            nodeAux.route = nodeCurr.route;
-            nodeAux.arrows = nodeCurr.arrows;
-            nodeAux.prohibited = nodeCurr.prohibited;
-            nodeAux.prohibited.push_back(nodeCurr.arrows[i]);
-            nodes.push_back(nodeAux);
-            nChild++;
+        if (nodes.empty()) {
+            std::cerr << "ERRO" << std::endl;
         }
-        //          std::cout << "branching de " << nChild << std::endl;
-    } else { 
-        if (nodeCurr.route.size() == dim + 1 && nodeCurr.solution >= lb && nodeCurr.solution < ub) {
-            std::cout << "Novo valor Upper Bound" << std::endl;
-            //                best.swap(nodeCurr.route);
-            ub = nodeCurr.solution;
-            int s = 0;
-            std::vector<Node>::iterator prev, it = nodes.begin();
-            while (it != nodes.end()) {
-                if (it->solution >= ub) {
-                    nodes.erase(it);
-                    it--;
-                    s++;
-                }
-                it++;
+        Node * nodeAux = NULL;
+        Node nodeCurr = nodes.back(); // DFS
+        nodes.pop_back();
+
+        for (j = 0; j < nodeCurr.arrows.size(); j++) {
+
+
+            // inviabiliza o uso dos arcos proibidos
+            for (i = 0; i < nodeCurr.prohibited.size(); i++) {
+                dMatrix[nodeCurr.prohibited[i].first]
+                    [nodeCurr.prohibited[i].second] = std::numeric_limits<int>::max();
             }
-            std::cout << s << " nos eliminados por bound, |nodes| = " << nodes.size() << std::endl;
-            tsp::printVector<int>(nodeCurr.route);
-        }
-    }
 
-    free<double>(dMatrix, dim);
-    return nodeCurr;
+            std::vector<int> vCycle = hungarian(nodeCurr, dMatrix, dim);
+
+            // branch-and-bound
+
+            // se nao eh uma solucao viavel TSP, ramifica
+            if (nodeCurr.route.size() > dim + 1 && nodeCurr.cost < ub) {
+                // cada novo no eh uma copia do no atual adicionado de um dos arcos como proibidos
+                for (i = 0; i < nodeCurr.arrows.size(); i++) {
+                    nodeAux = new Node;
+                    nodeAux->n = (int) nodes.size() + 1;
+                    nodeAux->cost = nodeCurr.cost;
+                    nodeAux->route = nodeCurr.route;
+                    //nodeAux->arrows = nodeCurr.arrows;
+                    nodeAux->prohibited = nodeCurr.prohibited;
+                    nodeAux->prohibited.push_back(nodeCurr.arrows[i]);
+                    nodes.push_back(*nodeAux);
+                    delete nodeAux;
+
+                    nChild++;
+                }
+            } else { // caso contrario
+                if (nodeCurr.route.size() == dim + 1 && nodeCurr.cost < ub) {
+                    if (nodeCurr.cost < bestCost) {
+                        ub = nodeCurr.cost;
+                        bestRoute = nodeCurr.route;
+                        bestCost = nodeCurr.cost;
+
+
+                        std::cout << "Novo valor Upper Bound: " << ub << std::endl;
+                        /*s = 0;
+                          std::vector<Node>::iterator prev, it = nodes.begin();
+                          for (it != nodes.begin(); it != nodes.end(); ++it) {
+                          if (it->cost >= ub) {
+                          nodes.erase(it);
+                          s++;
+                          it--;
+                          }
+                          }
+                          std::cout << s << " nos eliminados por bound, |nodes| = " << nodes.size() << std::endl;
+                          */
+                        tsp::printVector<int>(nodeCurr.route);
+                        std::cout << tsp::cost(nodeCurr.route, matrix) << std::endl;
+
+                    } else {
+                        std::cout << "183" << nodes.size() << std::endl;
+                    }
+                }
+                else {
+                    std::cout << "187" << nodes.size() << std::endl;
+                }
+            }
+
+        }
+        free<double>(dMatrix, dim);
+        //return nodeCurr;
+    }
 }
 
 void initBranchAndBound(const int ** matrix, const unsigned dim) {
     std::vector<Node> nodes;
     Node nodeCurr;
-    unsigned i;
-    unsigned lb, ub = 1234567;
+    unsigned long i;
+    unsigned lb = 123456, ub = 1234567;
 
     double ** dMatrix = copyMatrix2Double(matrix, dim);
 
@@ -186,17 +215,18 @@ void initBranchAndBound(const int ** matrix, const unsigned dim) {
         return;
     } else {
         nodes.push_back(nodeCurr);
+        std::cout << "Raiz: " << std::endl;
+        //printNode(nodes.back());
     }
     free<double>(dMatrix, dim);
 
     // comeca branch-and-bound
     i = 0;
-    while (!nodes.empty()) {
-        i++;
-        nodeCurr = bnb(nodes, matrix, dim, lb, ub);
-        std::cout << "(" << i << ") LB= " << lb << ", UB=" << ub << std::endl;
-        std::cout << "|nodes| = " << nodes.size() << std::endl;
-    }
+    int x;
+    std::cout << "starting bnb " << ub << " " << lb << " " << nodes.size() << " " << (!nodes.empty()) << std::endl;
+    bnb(nodes, matrix, dim, lb, ub);
+
+    std::cout << "end bnb" << std::endl;
     std::cout << tsp::cost(nodeCurr.route, matrix) << std::endl;
 }
 
@@ -219,6 +249,7 @@ int main(int argc, char *argv[]) {
         instance.printInfo();
         instance.initMatrix();
         instance.readMatrixData();
+        instance.closeFile();
     } catch (std::exception &e) {
         std::cout << e.what() << std::endl;
         std::cout << "Falha na inicializacao... encerrando." << std::endl;
@@ -256,8 +287,7 @@ void free(type ** matrix, const unsigned dim) {
 }
 
 void printNode(const Node& node) {
-
-    std::cout << std::endl << "Node " << &node << " " << node.n << "solution: " << &(node.solution) << " " << node.solution << std::endl;
+    std::cout << std::endl << "Node " << &node << " " << node.n << ", cost: " << node.cost << std::endl;
     std::cout << "Route " << &node.route << std::endl;
     tsp::printRoute(node.route);
     std::cout << "Arrows " << &node.arrows << std::endl;
