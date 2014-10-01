@@ -9,6 +9,7 @@
 #ifndef HEADERS_H
 #define HEADERS_H
 
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <unistd.h>
@@ -27,13 +28,18 @@ struct Node {
     std::vector<std::pair<int,int> > prohibited;
 };
 
-const int inf = 123456;
+const int inf = 999999;
 
 Node dfs(std::vector<Node>& nodes);
 Node bfs(std::vector<Node>& nodes);
 Node bestb(std::vector<Node>& nodes);
 
 double ** copyMatrix2Double(const int ** matrix, const unsigned dim);
+
+inline double gap(const unsigned lb, const unsigned ub) {
+    return (1.0 - lb*1.0/ub)*100;
+}
+
 inline bool isNewUB(Node& node, const unsigned dim, const unsigned ub) {
     return node.route.size() == dim + 1 && node.cost < ub;
 }
