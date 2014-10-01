@@ -27,7 +27,7 @@ struct Node {
     std::vector<std::pair<int,int> > prohibited;
 };
 
-const int inf = 1234567;
+const int inf = 123456;
 
 Node dfs(std::vector<Node>& nodes);
 Node bfs(std::vector<Node>& nodes);

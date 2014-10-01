@@ -148,10 +148,8 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
 
     // referencia para funcao/estrategia usada
     Node (* curr)(std::vector<Node>&) = NULL;
-    //    int s = 0;
-    //int s = 1;
-    int s = 2; 
-    switch(s) { //rand()%3) {
+    int s = 1;//rand()%3); 
+    switch(s) { 
         case 0:
             curr = &dfs;
             std::cout << "DFS";

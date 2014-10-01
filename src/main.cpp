@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     }
 
     double bef = tsp::cpuTime();
-    //initBranchAndBound(instance.getMatrix(), instance.getDim());
+    initBranchAndBound(instance.getMatrix(), instance.getDim());
     double aft = tsp::cpuTime();
 
     std::cout << (aft-bef) << "ms" << std::endl;
