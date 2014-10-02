@@ -37,15 +37,177 @@ void initBranchAndBound(const int ** matrix, const unsigned dim) {
     tsp::printVector<int>(bestRoute);
 }
 
+
+void oneTree(const int ** matrix, const unsigned dim) {
+    double ** dMatrix = copyMatrix2Double(matrix, dim);
+    int * degree = new int[dim];
+    double cost;
+    int k;
+    std::vector<int> route;
+    std::vector< std::pair<int,int> > arrows;
+
+    oneTreeAlgo(dim, dMatrix, cost, degree, k, arrows, route);
+
+    delete[] degree;
+    free<double>(dMatrix, dim);
+}
+
+void oneTreeAlgo(const unsigned dim, double ** dMatrix, double& cost, int * degree, int& k,
+        std::vector< std::pair<int,int> >& arrowsMaxDegVertex, std::vector<int>& route) {
+    int firstN, secondN;
+    bool ** sol1Tree = new bool * [dim];
+    unsigned i, j;
+
+    cost = 0;
+    for (i = 0; i < dim; i++) {
+        degree[i] = 0; // graus
+        sol1Tree[i] = new bool[dim];
+        for (j = 0; j < dim; j++) {
+            sol1Tree[i][j] = false;
+        }
+    }
+
+    std::pair<int,int> arrow = std::make_pair(-1, -1);
+    prim(dim - 1, cost, dMatrix, sol1Tree, degree);
+
+    // define ordem vizinhos do 1o vertice
+    if (dMatrix[0][1] < dMatrix[0][2]) {
+        firstN = 1;
+        secondN = 2;
+    } else {
+        firstN = 2;
+        secondN = 1;
+    }
+
+    // avalia vizinhos mais proximos que os dois primeiros
+    for (i = 3; i < dim; i++) {
+        if (dMatrix[0][i] < dMatrix[0][firstN]) {
+            secondN = firstN;
+            firstN = i;
+        } else if (dMatrix[0][i] < dMatrix[0][secondN]) {
+            secondN = i;
+        }
+    }
+
+    // inclui arcos ao custo e a matriz 
+    cost += dMatrix[0][firstN] + dMatrix[0][secondN];
+    sol1Tree[0][firstN] = true;
+    sol1Tree[0][secondN] = true;
+
+    // atualiza os graus
+    degree[0] = 2;
+    degree[firstN]++;
+    degree[secondN]++;
+
+    if (isFeasible(dim, degree, k)) {
+        route = get1TreeSolVector(dim, sol1Tree);
+    } else {
+        for (i = 0; i < dim; i++) {
+            if (sol1Tree[k][i]) {
+                arrow.first = k;
+                arrow.second = i;
+                arrowsMaxDegVertex.push_back(arrow);
+            }
+            if (sol1Tree[i][k]) {
+                arrow.first = i;
+                arrow.second = k;
+                arrowsMaxDegVertex.push_back(arrow);
+            }
+        }
+    }
+
+    for (i = 0; i < dim; i++) {
+        delete sol1Tree[i];
+    }
+    delete[] sol1Tree;
+}
+
+void prim(const unsigned dim, double& cost, double ** graph, bool ** sol1Tree, int * degree) {
+    bool * selected = new bool[dim];
+    int min, x = 0, y = 0; // numero de arestas/edges
+    unsigned i, j, ne;
+
+    for (i = 1; i < dim; i++) {
+        selected[i] = false;
+    }
+    selected[0] = true;
+    ne = 0;
+
+    while (ne < dim - 1) {
+        min = inf;
+        for (i = 0; i < dim; i++) {
+            if (selected[i]) {
+                for (j = 0; j < dim; j++) {
+                    if (!selected[j]) {
+                        if (graph[i][j] < min) {
+                            min = graph[i][j];
+                            x = i;
+                            y = j;
+                        }
+                    }
+                }
+            }
+        }
+        selected[y] = true;
+        // deslocado em 1 para desconsiderar primeiro vertice
+        degree[x+1]++;
+        degree[y+1]++;
+
+        cost += graph[x][y];
+        sol1Tree[x+1][y+1] = true;
+        ne++;
+    }
+}
+
+bool isFeasible(const unsigned dim, int * degree, int& k) {
+    int aux = 0;
+    unsigned i;
+
+    for (i = 0; i < dim; i++) {
+        if (degree[i] > aux) {
+            aux = degree[i];
+            k = i;
+        }
+    }
+    return (aux == 2);
+}
+
+std::vector<int> get1TreeSolVector(const unsigned dim, bool ** sol1Tree) {
+    unsigned i, j, aux;
+    std::vector<int> route;
+    std::list<int> clients;
+
+    for (i = 1; i < dim; i++) {
+        clients.push_back(i);
+    }
+    route.push_back(0);
+    aux = 0;
+
+    while (!clients.empty()) {
+        for (j = 0; j < dim; j++) {
+            if (sol1Tree[aux][j] || sol1Tree[j][aux]) {
+                if (sol1Tree[aux][j])
+                    sol1Tree[aux][j] = false;
+                else
+                    sol1Tree[j][aux] = false;
+                route.push_back(j);
+                clients.remove(j);
+                aux = j;
+                break;
+            }
+        }
+    }
+    route.push_back(0);
+    return route;
+}
+
 /**
  * Algoritmo hungaro para problema do assignment
  */
 void hungarian(Node& nodeCurr, double ** matrix, const int dim) {
-    int mode;
-
     // chamada ao hungaro para resolucao do problema de assignment
     hungarian_problem_t p;
-    mode = HUNGARIAN_MODE_MINIMIZE_COST;
+    int mode = HUNGARIAN_MODE_MINIMIZE_COST;
     hungarian_init(&p, matrix, dim, dim, mode);
     nodeCurr.cost = hungarian_solve(&p);
     // converte matrix binaria da solucao para rota (possivelmente c/ subciclo)
@@ -54,7 +216,6 @@ void hungarian(Node& nodeCurr, double ** matrix, const int dim) {
     verifyCycle(nodeCurr.route, nodeCurr.arrows, dim);
     // finaliza hungaro
     hungarian_free(&p);
-
 }
 
 /**
@@ -148,6 +309,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
 
     // referencia para funcao/estrategia usada
     Node (* curr)(std::vector<Node>&) = NULL;
+
     int s = rand() % 2; 
     switch(s) { 
         case 0:
@@ -166,11 +328,11 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     std::cout << std::endl;
 
     while (!nodes.empty()) {
-
-        if (c % 2000 == 0)
+        if (c % 7500 == 0) { // log
             std::cout << "UB: " << ub << std::setw(4) << " LB: " << lb << std::setw(4) 
                 << " GAP: " <<  gap(lb, ub) << "%" << std::setw(4) << " Numero de nos abertos: " << nodes.size() 
                 << std::setw(4) << " Iteracao: " << c << std::setw(4) << strat << std::endl;
+        }
 
         dMatrix = copyMatrix2Double(matrix, dim);
 
@@ -180,7 +342,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
         // inviabiliza o uso dos arcos proibidos
         for (i = 0; i < nodeCurr.prohibited.size(); i++) {
             dMatrix[nodeCurr.prohibited[i].first]
-                [nodeCurr.prohibited[i].second] = inf; //std::numeric_limits<int>::max();
+                [nodeCurr.prohibited[i].second] = inf;
         }
 
         // cada novo no eh uma copia do no atual adicionado de um dos arcos como proibidos
@@ -192,7 +354,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
             nodeAux.prohibited.push_back(nodeCurr.arrows[i]);
 
             t = dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second];
-            dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = inf;// std::numeric_limits<int>::max();
+            dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = inf;
 
             hungarian(nodeAux, dMatrix, dim);
 
@@ -215,8 +377,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
                             it--;
                         }
                     }
-                    std::cout << std::setw(4) << nBound << " nos eliminados por bound" << std::endl;
-                    //tsp::printVector<int>(nodeAux.route);
+                    std::cout << std::setw(4) << " " << nBound << " nos eliminados por bound" << std::endl;
                 }
             }
             dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = t;
@@ -245,7 +406,7 @@ double ** copyMatrix2Double(const int ** matrix, const unsigned dim) {
         dMatrix[i] = new double[dim];
         for (j = 0; j < dim; j++) {
             if (i==j)
-                dMatrix[i][j] = inf;//std::numeric_limits<int>::max();
+                dMatrix[i][j] = inf;
             else
                 dMatrix[i][j] = matrix[i][j];
         }
@@ -260,7 +421,6 @@ template<typename type> void free(type ** matrix, const unsigned dim) {
     }
     delete[] matrix;
 }
-
 
 void printNode(const Node& node) {
     std::cout << std::endl << "Node " << &node << " " << node.n << ", cost: " << node.cost << std::endl;
