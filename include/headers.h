@@ -66,15 +66,15 @@ inline bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned
 
 std::vector<int> get1TreeVectorSolution(bool ** sol1Tree, const unsigned dim);
 bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k);
-void oneTree(Node& node, const int ** matrix, const unsigned dim);
-void prim(const unsigned dim, unsigned& cost, const int ** graph, bool ** sol1Tree, unsigned * degree);
+void oneTree(Node& node, int ** matrix, const unsigned dim);
+void prim(const unsigned dim, unsigned& cost, int ** graph, bool ** sol1Tree, unsigned * degree);
 
 // hungarian
 
 
 template<typename type> std::vector<int> getVectorSolution(type ** matrix, int dim);
 void hungarian(Node& nodeCurr, double ** matrix, const int dim);
-void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub);
+void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub);
 void initBranchAndBound(const int ** matrix, const unsigned dim);
 void printNode(const Node& node);
 void verifyCycle(std::vector<int> &sol, std::vector< std::pair<int,int> > &cycleArrows, unsigned dim);
