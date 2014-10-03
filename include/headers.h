@@ -36,7 +36,7 @@ Node bfs(std::vector<Node>& nodes);
 Node bestb(std::vector<Node>& nodes);
 
 bool ** newBoolMatrix(const unsigned dim);
-template<typename type> type ** copyMatrix2(const type ** matrix, const unsigned dim);
+template<typename from, typename to> to ** copyMatrixFromTo(const from ** matrix, const unsigned dim);
 template<typename type> void free(type ** matrix, const unsigned dim);
 
 inline double gap(const unsigned lb, const unsigned ub) {

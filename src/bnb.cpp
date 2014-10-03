@@ -16,7 +16,6 @@ void initBranchAndBound(const int ** matrix, const unsigned dim) {
     Node nodeCurr;
     std::vector<Node> nodes;
     std::vector<int> bestRoute;
-    std::vector<int>::const_iterator it = bestRoute.begin();
     unsigned lb, ub = inf;
 
     // raiz
@@ -24,19 +23,18 @@ void initBranchAndBound(const int ** matrix, const unsigned dim) {
 
     // one tree
     oneTree(nodeCurr, matrix, dim);
-//    printNode(nodeCurr);
+    //    printNode(nodeCurr);
 
     //hungaro
-//    double ** cMatrix = copyMatrix2<double>(matrix, dim);
-//    hungarian(nodeCurr, cMatrix, dim);
-//    free<double>(cMatrix, dim);
+    //double ** cMatrix = copyMatrixFromTo<int, double>(matrix, dim);
+    //hungarian(nodeCurr, cMatrix, dim);
+    //free<double>(cMatrix, dim);
 
     if (isRootOptimal(nodeCurr, dim, lb, ub)) {
         std::cout << "Solucao otima encontrada! " << std::endl;
         tsp::printVector<int>(nodeCurr.route);
         return;
     } else {
-        printNode(nodeCurr);
         nodes.push_back(nodeCurr);
     }
 
@@ -47,12 +45,12 @@ void initBranchAndBound(const int ** matrix, const unsigned dim) {
 }
 
 void oneTree(Node& node, const int ** matrix, const unsigned dim) {
-    int fn, sn; // primeiro e segundo clientes
+    int a, fn,sn; // primeiro e segundo clientes
     unsigned * degree = new unsigned[dim];
     bool ** sol1Tree = newBoolMatrix(dim);
     unsigned i, k;
 
-//    tsp::printMatrix(matrix, dim, 10);
+    //    tsp::printMatrix(matrix, dim, 10);
     node.cost = 0;
     for (i = 0; i < dim; i++) {
         degree[i] = 0; // graus
@@ -60,39 +58,17 @@ void oneTree(Node& node, const int ** matrix, const unsigned dim) {
 
     // MST de vetor[1..dim], i.e., ignorando primeiro elemento
     prim(dim - 1, node.cost, matrix, sol1Tree, degree);
-    
-/*     std::cout << std::endl;
- *     for (i = 0; i < dim; i++) {
- *         std::cout << degree[i] << " ";
- *     }
- *     std::cout << std::endl;
- *     for (i = 0; i < dim; i++) {
- *         std::cout << std::setw(4) << i;
- *     }
- *     std::cout << std::endl;
- */
-//    tsp::printMatrix<bool>(const_cast<const bool **>(sol1Tree), dim, 4);
 
-    // define ordem vizinhos do 1o vertice
-    if (matrix[0][1] < matrix[0][2]) {
-        fn = 1;
-        sn = 2;
-    } else {
-        fn = 2;
-        sn = 1;
-    }
-
-    // avalia vizinhos mais proximos que os dois primeiros
-    for (i = 3; i < dim; i++) {
-        if (matrix[0][i] < matrix[0][fn]) {
+    fn = 1, sn = 2;
+    a = inf;
+    for (i = 1; i < dim; i++) {
+        if (matrix[0][i] < a) {
             sn = fn;
             fn = i;
-        } else if (matrix[0][i] < matrix[0][sn]) {
-            sn = i;
+            a = matrix[0][i];
         }
     }
 
-//    std::cout << fn << " " << sn << std::endl;
     // inclui arcos ao custo e a matriz 
     node.cost += matrix[0][fn] + matrix[0][sn];
     sol1Tree[0][fn] = sol1Tree[fn][0] = true;
@@ -102,14 +78,19 @@ void oneTree(Node& node, const int ** matrix, const unsigned dim) {
     degree[0] = 2;
     degree[fn]++;
     degree[sn]++;
+/*     for(i=0;i<dim;i++)
+ *         std::cout<<degree[i]<<" ";
+ *     std::cout<<std::endl;
+ */
 
     if (isFeasible(dim, degree, k)) {
-        node.route = getVectorSolution<bool>(sol1Tree, dim);
+        std::cout << "Feasible" << std::endl;
+        node.route = get1TreeVectorSolution(sol1Tree, dim);
     } else {
-//        std::cout << "nao viavel, k = " << k << std::endl;
+        node.arrows.clear();
         for (i = 0; i < dim; i++) {
             if (sol1Tree[k][i]) {
-                node.arrows.push_back(std::make_pair(i, k));
+                node.arrows.push_back(std::make_pair(k, i));
             }
         }
     }
@@ -144,6 +125,7 @@ void prim(const unsigned dim, unsigned& cost, const int ** graph, bool ** sol1Tr
                 }
             }
         }
+
         selected[y] = true;
         // deslocado em 1 para desconsiderar primeiro vertice
         degree[x+1]++;
@@ -156,21 +138,21 @@ void prim(const unsigned dim, unsigned& cost, const int ** graph, bool ** sol1Tr
 }
 
 bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k) {
-    unsigned aux = 0, i;
-
+    unsigned i, max = 0;
     for (i = 0; i < dim; i++) {
-        if (degree[i] > aux) {
-            aux = degree[i];
+        if (degree[i] > max) {
+            max = degree[i];
             k = i;
         }
     }
-    return (aux == 2);
+    return (max==2);
 }
 
 std::vector<int> get1TreeVectorSolution(bool ** sol1Tree, const unsigned dim) {
     unsigned i, j, aux;
     std::vector<int> route;
     std::list<int> clients;
+    std::list<int>::iterator cit;
 
     for (i = 1; i < dim; i++) {
         clients.push_back(i);
@@ -179,15 +161,17 @@ std::vector<int> get1TreeVectorSolution(bool ** sol1Tree, const unsigned dim) {
     aux = 0;
 
     while (!clients.empty()) {
-        for (j = 0; j < dim; j++) {
+        for (cit = clients.begin(); cit != clients.end(); ++cit) {
+            j = *cit;
             if (sol1Tree[aux][j] || sol1Tree[j][aux]) {
                 if (sol1Tree[aux][j])
                     sol1Tree[aux][j] = false;
                 else
                     sol1Tree[j][aux] = false;
                 route.push_back(j);
-                clients.remove(j);
+                clients.erase(cit);
                 aux = j;
+                --cit;
                 break;
             }
         }
@@ -299,7 +283,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     Node nodeAux;
 
     //hungaro
-//    double ** dMatrix, t;
+    // double ** dMatrix, t;
     //one-tree
     int ** dMatrix, t;
 
@@ -310,7 +294,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     // referencia para funcao/estrategia usada
     Node (* curr)(std::vector<Node>&) = NULL;
 
-    int s = rand() % 2; 
+    int s = 0; //rand() % 3; 
     switch(s) { 
         case 0:
             curr = &dfs;
@@ -328,14 +312,22 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     std::cout << std::endl;
 
     while (!nodes.empty()) {
-//        if (c % 1000 == 0) { // log
+        if (c % 2000 == 0) { // log
             std::cout << "UB: " << ub << std::setw(4) << " LB: " << lb << std::setw(4) 
                 << " GAP: " <<  gap(lb, ub) << "%" << std::setw(4) << " Numero de nos abertos: " << nodes.size() 
-                << std::setw(4) << " Iteracao: " << c << std::setw(4) << strat << std::endl;
-//        }
+                << std::setw(4) << " Iteracao: " << c << " " << strat << std::endl;
+/*             std::cout << "Lista de nos: " << std::endl;
+ *             for(std::vector<Node>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
+ *                 printNode(*it);
+ *             }
+ *             std::cout << std::endl;
+ * 
+ *             std::cin >> t;
+ */
+        }
 
-//dMatrix = copyMatrix2<double>(matrix, dim);
-        dMatrix = copyMatrix2<int>(matrix, dim);
+        // dMatrix = copyMatrixFromTo<int, double>(matrix, dim);
+        dMatrix = copyMatrixFromTo<int, int>(matrix, dim);
 
         // seleciona (e retira da lista) no de acordo com estrategia
         Node nodeCurr = curr(nodes);
@@ -350,7 +342,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
 
         // cada novo no eh uma copia do no atual adicionado de um dos arcos como proibidos
         for (i = 0; i < nodeCurr.arrows.size(); i++) {
-//            std::cout << "proibindo " << nodeCurr.arrows[i].first << " " << nodeCurr.arrows[i].second << std::endl;
+            //            std::cout << "proibindo " << nodeCurr.arrows[i].first << " " << nodeCurr.arrows[i].second << std::endl;
             c++;
             // branch-and-bound
             nodeAux.n = (int) nodes.size() + 1;
@@ -365,11 +357,11 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
             oneTree(nodeAux, const_cast<const int **>(dMatrix), dim);
 
             // se nao eh uma solucao viavel TSP (ciclo hamiltoniano) mas custo esta abaixo do UB
-            if (!isValidCH(nodeAux.route, dim) && nodeAux.cost < ub) {
+            if (!nodeAux.arrows.empty() && nodeAux.cost < ub) {//!isValidCH(nodeAux.route, dim) && nodeAux.cost < ub) {
                 nodes.push_back(nodeAux);
-            } else { 
+            } else {
                 // solucao viavel e de menor custo, novo UB
-                if (isNewUB(nodeAux, dim, ub)) {
+                if (nodeAux.arrows.empty() && nodeAux.cost < ub) {// isNewUB(nodeAux, dim, ub)) {
                     ub = nodeAux.cost;
                     bestRoute = nodeAux.route;
 
@@ -396,7 +388,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
             if (nodes[i].cost < lb)
                 lb = nodes[i].cost;
         }
-        //free<double>(dMatrix, dim);
+        //        free<double>(dMatrix, dim);
         free<int>(dMatrix, dim);
     }
     std::cout << "FIM Branch-and-bound - LB=" << lb << " UB=" << ub << std::endl;
@@ -418,16 +410,16 @@ bool ** newBoolMatrix(const unsigned dim) {
     return bMatrix;
 }
 
-template<typename type> type ** copyMatrix2(const type ** matrix, const unsigned dim) {
-    type ** dMatrix = new type * [dim];
+template<typename from, typename to> to ** copyMatrixFromTo(const from ** matrix, const unsigned dim) {
+    to ** dMatrix = new to * [dim];
     unsigned i, j;
     for (i = 0; i < dim; i++) {
-        dMatrix[i] = new type[dim];
+        dMatrix[i] = new to[dim];
         for (j = 0; j < dim; j++) {
             if (i==j)
-                dMatrix[i][j] = inf;
+                dMatrix[i][j] = (to) inf;
             else
-                dMatrix[i][j] = matrix[i][j];
+                dMatrix[i][j] = (to) matrix[i][j];
         }
     }
     return dMatrix;

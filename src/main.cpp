@@ -19,6 +19,7 @@
 int main(int argc, char *argv[]) {
     std::string file = "";
     std::stringstream ss;
+    srand(time(NULL));
 
     if (argc >= 2) {
         file.assign(argv[1]);
