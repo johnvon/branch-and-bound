@@ -35,7 +35,9 @@ Node dfs(std::vector<Node>& nodes);
 Node bfs(std::vector<Node>& nodes);
 Node bestb(std::vector<Node>& nodes);
 
-double ** copyMatrix2Double(const int ** matrix, const unsigned dim);
+bool ** newBoolMatrix(const unsigned dim);
+template<typename type> type ** copyMatrix2(const type ** matrix, const unsigned dim);
+template<typename type> void free(type ** matrix, const unsigned dim);
 
 inline double gap(const unsigned lb, const unsigned ub) {
     return (1.0 - lb*1.0/ub)*100;
@@ -60,20 +62,20 @@ inline bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned
     return false;
 }
 
-std::vector<int> getVectorSolution(int ** matrix, int dim);
+// one-tree
+
+std::vector<int> get1TreeVectorSolution(bool ** sol1Tree, const unsigned dim);
+bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k);
+void oneTree(Node& node, const int ** matrix, const unsigned dim);
+void prim(const unsigned dim, unsigned& cost, const int ** graph, bool ** sol1Tree, unsigned * degree);
+
+// hungarian
+
+
+template<typename type> std::vector<int> getVectorSolution(type ** matrix, int dim);
 void hungarian(Node& nodeCurr, double ** matrix, const int dim);
-void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, unsigned dim, unsigned& lb, unsigned& ub);
+void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub);
 void initBranchAndBound(const int ** matrix, const unsigned dim);
 void printNode(const Node& node);
 void verifyCycle(std::vector<int> &sol, std::vector< std::pair<int,int> > &cycleArrows, unsigned dim);
-template<typename type> void free(type ** matrix, const unsigned dim);
-
-// one-tree
-
-std::vector<int> get1TreeSolVector(const unsigned dim, bool ** sol1Tree);
-bool isFeasible(const unsigned dim, int * degree, int& k);
-void prim(const unsigned dim, double& cost, double ** graph, bool ** sol1Tree, int * degree);
-void oneTree(const int ** matrix, const unsigned dim);
-void oneTreeAlgo(const unsigned dim, double ** dMatrix, double& cost, int * degree, int& k,
-        std::vector< std::pair<int,int> >& arrowsMaxDegVertex, std::vector<int>& route);
 #endif 

@@ -14,22 +14,31 @@
  */
 void initBranchAndBound(const int ** matrix, const unsigned dim) {
     Node nodeCurr;
-    double ** dMatrix = copyMatrix2Double(matrix, dim);
     std::vector<Node> nodes;
     std::vector<int> bestRoute;
+    std::vector<int>::const_iterator it = bestRoute.begin();
     unsigned lb, ub = inf;
 
     // raiz
     nodeCurr.n = 0;
-    hungarian(nodeCurr, dMatrix, dim);
+
+    // one tree
+    oneTree(nodeCurr, matrix, dim);
+//    printNode(nodeCurr);
+
+    //hungaro
+//    double ** cMatrix = copyMatrix2<double>(matrix, dim);
+//    hungarian(nodeCurr, cMatrix, dim);
+//    free<double>(cMatrix, dim);
+
     if (isRootOptimal(nodeCurr, dim, lb, ub)) {
         std::cout << "Solucao otima encontrada! " << std::endl;
         tsp::printVector<int>(nodeCurr.route);
         return;
     } else {
+        printNode(nodeCurr);
         nodes.push_back(nodeCurr);
     }
-    free<double>(dMatrix, dim);
 
     // comeca branch-and-bound
     bnb(bestRoute, nodes, matrix, dim, lb, ub);
@@ -37,92 +46,79 @@ void initBranchAndBound(const int ** matrix, const unsigned dim) {
     tsp::printVector<int>(bestRoute);
 }
 
+void oneTree(Node& node, const int ** matrix, const unsigned dim) {
+    int fn, sn; // primeiro e segundo clientes
+    unsigned * degree = new unsigned[dim];
+    bool ** sol1Tree = newBoolMatrix(dim);
+    unsigned i, k;
 
-void oneTree(const int ** matrix, const unsigned dim) {
-    double ** dMatrix = copyMatrix2Double(matrix, dim);
-    int * degree = new int[dim];
-    double cost;
-    int k;
-    std::vector<int> route;
-    std::vector< std::pair<int,int> > arrows;
-
-    oneTreeAlgo(dim, dMatrix, cost, degree, k, arrows, route);
-
-    delete[] degree;
-    free<double>(dMatrix, dim);
-}
-
-void oneTreeAlgo(const unsigned dim, double ** dMatrix, double& cost, int * degree, int& k,
-        std::vector< std::pair<int,int> >& arrowsMaxDegVertex, std::vector<int>& route) {
-    int firstN, secondN;
-    bool ** sol1Tree = new bool * [dim];
-    unsigned i, j;
-
-    cost = 0;
+//    tsp::printMatrix(matrix, dim, 10);
+    node.cost = 0;
     for (i = 0; i < dim; i++) {
         degree[i] = 0; // graus
-        sol1Tree[i] = new bool[dim];
-        for (j = 0; j < dim; j++) {
-            sol1Tree[i][j] = false;
-        }
     }
 
-    std::pair<int,int> arrow = std::make_pair(-1, -1);
-    prim(dim - 1, cost, dMatrix, sol1Tree, degree);
+    // MST de vetor[1..dim], i.e., ignorando primeiro elemento
+    prim(dim - 1, node.cost, matrix, sol1Tree, degree);
+    
+/*     std::cout << std::endl;
+ *     for (i = 0; i < dim; i++) {
+ *         std::cout << degree[i] << " ";
+ *     }
+ *     std::cout << std::endl;
+ *     for (i = 0; i < dim; i++) {
+ *         std::cout << std::setw(4) << i;
+ *     }
+ *     std::cout << std::endl;
+ */
+//    tsp::printMatrix<bool>(const_cast<const bool **>(sol1Tree), dim, 4);
 
     // define ordem vizinhos do 1o vertice
-    if (dMatrix[0][1] < dMatrix[0][2]) {
-        firstN = 1;
-        secondN = 2;
+    if (matrix[0][1] < matrix[0][2]) {
+        fn = 1;
+        sn = 2;
     } else {
-        firstN = 2;
-        secondN = 1;
+        fn = 2;
+        sn = 1;
     }
 
     // avalia vizinhos mais proximos que os dois primeiros
     for (i = 3; i < dim; i++) {
-        if (dMatrix[0][i] < dMatrix[0][firstN]) {
-            secondN = firstN;
-            firstN = i;
-        } else if (dMatrix[0][i] < dMatrix[0][secondN]) {
-            secondN = i;
+        if (matrix[0][i] < matrix[0][fn]) {
+            sn = fn;
+            fn = i;
+        } else if (matrix[0][i] < matrix[0][sn]) {
+            sn = i;
         }
     }
 
+//    std::cout << fn << " " << sn << std::endl;
     // inclui arcos ao custo e a matriz 
-    cost += dMatrix[0][firstN] + dMatrix[0][secondN];
-    sol1Tree[0][firstN] = true;
-    sol1Tree[0][secondN] = true;
+    node.cost += matrix[0][fn] + matrix[0][sn];
+    sol1Tree[0][fn] = sol1Tree[fn][0] = true;
+    sol1Tree[0][sn] = sol1Tree[sn][0] = true;
 
     // atualiza os graus
     degree[0] = 2;
-    degree[firstN]++;
-    degree[secondN]++;
+    degree[fn]++;
+    degree[sn]++;
 
     if (isFeasible(dim, degree, k)) {
-        route = get1TreeSolVector(dim, sol1Tree);
+        node.route = getVectorSolution<bool>(sol1Tree, dim);
     } else {
+//        std::cout << "nao viavel, k = " << k << std::endl;
         for (i = 0; i < dim; i++) {
             if (sol1Tree[k][i]) {
-                arrow.first = k;
-                arrow.second = i;
-                arrowsMaxDegVertex.push_back(arrow);
-            }
-            if (sol1Tree[i][k]) {
-                arrow.first = i;
-                arrow.second = k;
-                arrowsMaxDegVertex.push_back(arrow);
+                node.arrows.push_back(std::make_pair(i, k));
             }
         }
     }
 
-    for (i = 0; i < dim; i++) {
-        delete sol1Tree[i];
-    }
-    delete[] sol1Tree;
+    free<bool>(sol1Tree, dim);
+    delete[] degree;
 }
 
-void prim(const unsigned dim, double& cost, double ** graph, bool ** sol1Tree, int * degree) {
+void prim(const unsigned dim, unsigned& cost, const int ** graph, bool ** sol1Tree, unsigned * degree) {
     bool * selected = new bool[dim];
     int min, x = 0, y = 0; // numero de arestas/edges
     unsigned i, j, ne;
@@ -154,14 +150,13 @@ void prim(const unsigned dim, double& cost, double ** graph, bool ** sol1Tree, i
         degree[y+1]++;
 
         cost += graph[x][y];
-        sol1Tree[x+1][y+1] = true;
+        sol1Tree[y+1][x+1] = sol1Tree[x+1][y+1] = true;
         ne++;
     }
 }
 
-bool isFeasible(const unsigned dim, int * degree, int& k) {
-    int aux = 0;
-    unsigned i;
+bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k) {
+    unsigned aux = 0, i;
 
     for (i = 0; i < dim; i++) {
         if (degree[i] > aux) {
@@ -172,7 +167,7 @@ bool isFeasible(const unsigned dim, int * degree, int& k) {
     return (aux == 2);
 }
 
-std::vector<int> get1TreeSolVector(const unsigned dim, bool ** sol1Tree) {
+std::vector<int> get1TreeVectorSolution(bool ** sol1Tree, const unsigned dim) {
     unsigned i, j, aux;
     std::vector<int> route;
     std::list<int> clients;
@@ -211,7 +206,7 @@ void hungarian(Node& nodeCurr, double ** matrix, const int dim) {
     hungarian_init(&p, matrix, dim, dim, mode);
     nodeCurr.cost = hungarian_solve(&p);
     // converte matrix binaria da solucao para rota (possivelmente c/ subciclo)
-    nodeCurr.route = getVectorSolution(p.assignment, dim);
+    nodeCurr.route = getVectorSolution<int>(p.assignment, dim);
     // verifica ciclo e armazena como vetor de pares (arcos a serem proibidos)
     verifyCycle(nodeCurr.route, nodeCurr.arrows, dim);
     // finaliza hungaro
@@ -221,7 +216,7 @@ void hungarian(Node& nodeCurr, double ** matrix, const int dim) {
 /**
  * Converte matrix binaria do algoritmo hungaro em uma rota
  */
-std::vector<int> getVectorSolution(int ** matrix, int dim) {
+template<typename type> std::vector<int> getVectorSolution(type ** matrix, int dim) {
     int i, j;
     std::vector<bool> visited;
     std::vector<int> route;
@@ -242,7 +237,7 @@ std::vector<int> getVectorSolution(int ** matrix, int dim) {
         visited[i] = true;
 
         for (j = 0; j < dim; j++) {
-            if (matrix[i][j] == 1) {
+            if (matrix[i][j]) {
                 route.push_back(j);
                 visited[true];
                 i = j - 1;
@@ -300,9 +295,14 @@ void verifyCycle(std::vector<int> &sol, std::vector< std::pair<int,int> > &cycle
 /**
  * Branch-and-bound
  */
-void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, unsigned dim, unsigned& lb, unsigned& ub) {
+void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub) {
     Node nodeAux;
-    double ** dMatrix, t;
+
+    //hungaro
+//    double ** dMatrix, t;
+    //one-tree
+    int ** dMatrix, t;
+
     unsigned i, nBound;
     unsigned long c = 0;
     std::string strat = "";
@@ -328,13 +328,14 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     std::cout << std::endl;
 
     while (!nodes.empty()) {
-        if (c % 7500 == 0) { // log
+//        if (c % 1000 == 0) { // log
             std::cout << "UB: " << ub << std::setw(4) << " LB: " << lb << std::setw(4) 
                 << " GAP: " <<  gap(lb, ub) << "%" << std::setw(4) << " Numero de nos abertos: " << nodes.size() 
                 << std::setw(4) << " Iteracao: " << c << std::setw(4) << strat << std::endl;
-        }
+//        }
 
-        dMatrix = copyMatrix2Double(matrix, dim);
+//dMatrix = copyMatrix2<double>(matrix, dim);
+        dMatrix = copyMatrix2<int>(matrix, dim);
 
         // seleciona (e retira da lista) no de acordo com estrategia
         Node nodeCurr = curr(nodes);
@@ -343,10 +344,13 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
         for (i = 0; i < nodeCurr.prohibited.size(); i++) {
             dMatrix[nodeCurr.prohibited[i].first]
                 [nodeCurr.prohibited[i].second] = inf;
+            dMatrix[nodeCurr.prohibited[i].second]
+                [nodeCurr.prohibited[i].first] = inf;
         }
 
         // cada novo no eh uma copia do no atual adicionado de um dos arcos como proibidos
         for (i = 0; i < nodeCurr.arrows.size(); i++) {
+//            std::cout << "proibindo " << nodeCurr.arrows[i].first << " " << nodeCurr.arrows[i].second << std::endl;
             c++;
             // branch-and-bound
             nodeAux.n = (int) nodes.size() + 1;
@@ -355,8 +359,10 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
 
             t = dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second];
             dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = inf;
+            dMatrix[nodeCurr.arrows[i].second][nodeCurr.arrows[i].first] = inf;
 
-            hungarian(nodeAux, dMatrix, dim);
+            //hungarian(nodeAux, dMatrix, dim);
+            oneTree(nodeAux, const_cast<const int **>(dMatrix), dim);
 
             // se nao eh uma solucao viavel TSP (ciclo hamiltoniano) mas custo esta abaixo do UB
             if (!isValidCH(nodeAux.route, dim) && nodeAux.cost < ub) {
@@ -381,6 +387,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
                 }
             }
             dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = t;
+            dMatrix[nodeCurr.arrows[i].second][nodeCurr.arrows[i].first] = t;
         }
 
         // atualiza lower bound
@@ -389,8 +396,8 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
             if (nodes[i].cost < lb)
                 lb = nodes[i].cost;
         }
-        free<double>(dMatrix, dim);
-        c++;
+        //free<double>(dMatrix, dim);
+        free<int>(dMatrix, dim);
     }
     std::cout << "FIM Branch-and-bound - LB=" << lb << " UB=" << ub << std::endl;
 }
@@ -399,11 +406,23 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
 // Funcoes auxiliares
 // ##################
 
-double ** copyMatrix2Double(const int ** matrix, const unsigned dim) {
-    double ** dMatrix = new double * [dim];
+bool ** newBoolMatrix(const unsigned dim) {
+    bool ** bMatrix = new bool * [dim];
     unsigned i, j;
     for (i = 0; i < dim; i++) {
-        dMatrix[i] = new double[dim];
+        bMatrix[i] = new bool[dim];
+        for (j = 0; j < dim; j++) {
+            bMatrix[i][j] = false; 
+        }
+    }
+    return bMatrix;
+}
+
+template<typename type> type ** copyMatrix2(const type ** matrix, const unsigned dim) {
+    type ** dMatrix = new type * [dim];
+    unsigned i, j;
+    for (i = 0; i < dim; i++) {
+        dMatrix[i] = new type[dim];
         for (j = 0; j < dim; j++) {
             if (i==j)
                 dMatrix[i][j] = inf;
@@ -416,10 +435,13 @@ double ** copyMatrix2Double(const int ** matrix, const unsigned dim) {
 
 template<typename type> void free(type ** matrix, const unsigned dim) {
     unsigned i;
-    for (i = 0; i < dim; i++) {
-        delete[] matrix[i];
+    if (matrix != NULL) {
+        for (i = 0; i < dim; i++) {
+            if (matrix[i] != NULL)
+                delete[] matrix[i];
+        }
+        delete[] matrix;
     }
-    delete[] matrix;
 }
 
 void printNode(const Node& node) {
