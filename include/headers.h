@@ -62,6 +62,18 @@ inline bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned
     return false;
 }
 
+inline void updateLB(std::vector<Node>& nodes, unsigned& lb) {
+    int min = inf;
+    for (unsigned j = 0; j < nodes.size(); j++) {
+        if (nodes[j].cost < min) {
+            min = nodes[j].cost;
+        }
+    }
+    if (min > lb) {
+        lb = min;
+    }
+}
+
 bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k, unsigned& z);
 
 template<typename type> std::vector<int> getVectorSolution(type ** matrix, int dim);
@@ -78,9 +90,9 @@ Node rootBBHung(const int ** matrix, const unsigned dim);
 
 Node rootBB1Tree(const int ** matrix, const unsigned dim);
 
-void initBranchAndBound(const int ** matrix, const unsigned dim);
+void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b = 0);
 
-void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, int x);
+void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, unsigned b, unsigned x);
 
 void printNode(const Node& node);
 

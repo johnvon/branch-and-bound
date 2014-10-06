@@ -19,12 +19,17 @@
 int main(int argc, char *argv[]) {
     std::string file = "";
     std::stringstream ss;
+    unsigned s = 0;
     srand(time(NULL));
 
     if (argc >= 2) {
         file.assign(argv[1]);
+        if (argc >= 3) {
+            ss.str(argv[2]);
+            ss >> s;
+        }
     } else {
-        std::cout << "Uso " << argv[0] << " arquivo_entrada" << std::endl;
+        std::cout << "Uso " << argv[0] << " arquivo_entrada [branching(0=dfs,1=bfs,2=bestb)]" << std::endl;
         return 1;
     }
 
@@ -44,7 +49,7 @@ int main(int argc, char *argv[]) {
     }
 
     double bef = tsp::cpuTime();
-    initBranchAndBound(instance.getMatrix(), instance.getDim());
+    initBranchAndBound(instance.getMatrix(), instance.getDim(), s);
     double aft = tsp::cpuTime();
     std::cout << (aft-bef) << "ms" << std::endl;
 
