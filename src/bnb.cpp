@@ -82,8 +82,8 @@ void oneTree(Node& node, int ** matrix, const unsigned dim) {
     unsigned * degree = new unsigned[dim]; // Total de arestas em cada vertice
     unsigned fn, sn, k, z, i, cost = 0;
 
-    prim1Tree(dim, matrix, degree, sol1Tree, cost);
-    //    primsAlgo(dim, matrix, degree, sol1Tree, cost);
+    //prim1Tree(dim, matrix, degree, sol1Tree, cost);
+        primsAlgo(dim, matrix, degree, sol1Tree, cost);
 
     //    tsp::printMatrix(const_cast<const int **>(matrix), dim, 10);
 
@@ -118,11 +118,9 @@ void oneTree(Node& node, int ** matrix, const unsigned dim) {
         std::cout << "Viavel: " << cost << std::endl;
         node.route = get1TreeVectorSolution(sol1Tree, dim);
         tsp::printVector<int>(node.route);
-        std::cout << tsp::cost(node.route, const_cast<const int **>(matrix)) << std::endl;
-        std::cin >> i;
+        std::cout << tsp::cost(node.route, const_cast<const int **>(matrix)) - inf << std::endl;
+//        std::cin >> i;
     } else {
-//        if (degree[z] > 0 
-        if (cost < inf) {
 //                        std::cout << "solucao inviavel: " << node.cost << ", vertice de maior grau: " << k << 
 //                            " | fn= " << fn << " sn= " << sn << std::endl;
             node.arrows.clear();
@@ -131,7 +129,7 @@ void oneTree(Node& node, int ** matrix, const unsigned dim) {
                     node.arrows.push_back(std::make_pair<int,int>(i,k));
                 }
             }
-        }
+        
     }
 
 
@@ -164,7 +162,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     double ** dMatrix = NULL, d = 0;
     int    ** cMatrix = NULL, c = 0;
 
-    int s = 0; //rand() % 3; 
+    int s = 1; //rand() % 3; 
     unsigned i, j, nBound;
     unsigned long count = 0;
     std::string strat = "";
@@ -189,7 +187,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     std::cout << std::endl;
 
     while (!nodes.empty()) {
-        if (count % 1000 == 0) { // log
+        if (count % 10 == 0) { // log
             std::cout << "UB: " << ub << std::setw(4) << " LB: " << lb << std::setw(4) 
                 << " GAP: " <<  gap(lb, ub) << "%" << std::setw(4) << " Numero de nos abertos: " << nodes.size() 
                 << std::setw(4) << " Iteracao: " << count << " " << strat << std::endl;
@@ -223,6 +221,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
             nodeAux.n = (int) nodes.size() + 1;
             nodeAux.prohibited = nodeCurr.prohibited;
             nodeAux.prohibited.push_back(nodeCurr.arrows[i]);
+            nodeAux.route.clear();
 
             if (x) {
                 d = dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second];
@@ -235,13 +234,12 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
                 oneTree(nodeAux, cMatrix, dim);
             }
 
-            //            printNode(nodeAux);
             // se nao eh uma solucao viavel TSP (ciclo hamiltoniano) mas custo esta abaixo do UB
             if (!isValidCH(nodeAux.route, dim) && nodeAux.cost < ub) {
                 nodes.push_back(nodeAux);
                 // atualiza lower bound
                 if (nodeCurr.cost > lb) {
-                    lb = ub;
+                    lb = nodeCurr.cost;
                     for (j = 0; j < nodes.size(); j++) {
                         if (nodes[j].cost < lb)
                             lb = nodes[j].cost;

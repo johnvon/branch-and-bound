@@ -16,7 +16,7 @@
 // the set of vertices not yet included in MST
 unsigned minKey(int * key, bool * mstSet, const unsigned dim) {
     // Initialize min value
-    unsigned min = inf, min_index, v;
+    unsigned min = inf, min_index = -1, v;
 
     for (v = 1; v < dim; v++)
         if (mstSet[v] == false && key[v] < min)
@@ -53,6 +53,10 @@ void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1
     for (count = 0; count < dim-2; count++) {
         // Pick thd minimum key vertex from the set of vertices
         // not yet included in MST
+        
+        // solucao inviavel, descarta construcao de MST
+        if (u == -1)
+            return;
         u = minKey(key, mstSet, dim);
 
         // Add the picked vertex to the MST Set
