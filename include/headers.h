@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "../include/hungarian.h"
+#include "../include/prim.h"
 
 #include "Util.h"
 
@@ -29,14 +30,13 @@ struct Node {
     std::vector<std::pair<int,int> > prohibited;
 };
 
-const int inf = 999999;
 
 Node dfs(std::vector<Node>& nodes);
 Node bfs(std::vector<Node>& nodes);
 Node bestb(std::vector<Node>& nodes);
 
 bool ** newBoolMatrix(const unsigned dim);
-template<typename from, typename to> to ** copyMatrixFromTo(const from ** matrix, const unsigned dim);
+template<typename from, typename to> to ** copyMatrixFromTo(const from ** matrix, const unsigned dim, const unsigned s = 0);
 template<typename type> void free(type ** matrix, const unsigned dim);
 
 inline double gap(const unsigned lb, const unsigned ub) {
@@ -62,20 +62,29 @@ inline bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned
     return false;
 }
 
-// one-tree
-
-std::vector<int> get1TreeVectorSolution(bool ** sol1Tree, const unsigned dim);
-bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k);
-void oneTree(Node& node, int ** matrix, const unsigned dim);
-void prim(const unsigned dim, unsigned& cost, int ** graph, bool ** sol1Tree, unsigned * degree);
-
-// hungarian
-
+bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k, unsigned& z);
 
 template<typename type> std::vector<int> getVectorSolution(type ** matrix, int dim);
-void hungarian(Node& nodeCurr, double ** matrix, const int dim);
-void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub);
+
+std::vector<int> get1TreeVectorSolution(bool ** matrix, unsigned dim);
+
+void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim);
+
+void prim(const unsigned dim, unsigned& cost, int ** graph, bool ** sol1Tree, unsigned * degree);
+
+void oneTree(Node& node, int ** matrix, const unsigned dim);
+
+Node rootBBHung(const int ** matrix, const unsigned dim);
+
+Node rootBB1Tree(const int ** matrix, const unsigned dim);
+
 void initBranchAndBound(const int ** matrix, const unsigned dim);
+
+void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, int x);
+
 void printNode(const Node& node);
+
+void printDegrees(unsigned * degree, const unsigned dim);
+
 void verifyCycle(std::vector<int> &sol, std::vector< std::pair<int,int> > &cycleArrows, unsigned dim);
 #endif 
