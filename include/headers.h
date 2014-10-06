@@ -36,11 +36,20 @@ Node bfs(std::vector<Node>& nodes);
 Node bestb(std::vector<Node>& nodes);
 
 bool ** newBoolMatrix(const unsigned dim);
+
 template<typename from, typename to> to ** copyMatrixFromTo(const from ** matrix, const unsigned dim, const unsigned s = 0);
+
 template<typename type> void free(type ** matrix, const unsigned dim);
 
 inline double gap(const unsigned lb, const unsigned ub) {
     return (1.0 - lb*1.0/ub)*100;
+}
+
+inline void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, std::string strat) {
+    std::cout << "UB: " << ub << std::setw(4) << " LB: " << lb << std::setw(4) 
+        << " GAP: " <<  gap(lb, ub) << "%" << std::setw(4) << " Numero de nos abertos: " << size 
+        << std::setw(4) << " Iteracao: " << count << " " << strat << std::endl;
+
 }
 
 inline bool isNewUB(Node& node, const unsigned dim, const unsigned ub) {
@@ -63,13 +72,13 @@ inline bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned
 }
 
 inline void updateLB(std::vector<Node>& nodes, unsigned& lb) {
-    int min = inf;
+    unsigned min = inf;
     for (unsigned j = 0; j < nodes.size(); j++) {
         if (nodes[j].cost < min) {
             min = nodes[j].cost;
         }
     }
-    if (min > lb) {
+    if (min != (unsigned) inf && min > lb) {
         lb = min;
     }
 }

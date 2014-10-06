@@ -34,46 +34,6 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b) {
     tsp::printVector<int>(bestRoute);
 }
 
-void primsAlgo(const unsigned dimension, int ** graph, unsigned * grau, bool ** sol1Tree, unsigned& cost){
-    bool selected[dimension];
-    unsigned min, x, y, i, j, ne;
-
-    for(i = 0; i < dimension; i++) {
-        selected[i] = false;
-        grau[i] = 0;
-    }
-    selected[1] = true;
-    ne = 0;
-
-    while (ne < dimension - 2) {
-        min = inf;
-        for (i = 1; i < dimension; i++) {
-            if (selected[i]) {
-                for (j = 1; j < dimension; j++) {
-                    if ( ! selected[j]) {
-                        if (min > graph[i][j] && graph[i][j] < inf) {
-                            min = graph[i][j];
-                            x = i;
-                            y = j;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (min < inf) {
-            selected[y] = true;
-            grau[x]++; //guardar grau do nó
-            grau[y]++; //guardar grau do nó
-            cost += graph[x][y];
-            sol1Tree[x][y] = sol1Tree[y][x] = true;
-            ne += 1;
-        } else {
-            return;
-        }
-    }
-}
-
 /**
  * Relaxacao pelo algoritmo 1-tree
  */
@@ -83,10 +43,8 @@ void oneTree(Node& node, int ** matrix, const unsigned dim) {
     unsigned fn, sn, k, z, i, cost = 0;
 
     prim1Tree(dim, matrix, degree, sol1Tree, cost);
-    //primsAlgo(dim, matrix, degree, sol1Tree, cost);
 
-    //    tsp::printMatrix(const_cast<const int **>(matrix), dim, 10);
-
+    // selecao de duas arestas mais baratas
     fn = 1, sn = 2;
     if (matrix[0][fn] > matrix[0][sn]) {
         fn = 2;
@@ -110,18 +68,12 @@ void oneTree(Node& node, int ** matrix, const unsigned dim) {
     sol1Tree[0][fn] = sol1Tree[fn][0] = true;
     sol1Tree[0][sn] = sol1Tree[sn][0] = true; 
     cost += matrix[0][fn] + matrix[0][sn];
-    //        printDegrees(degree,dim);
 
     node.cost = cost;
+
     if (isFeasible(dim, degree, k, z)) {
-        //        std::cout << "Viavel: " << cost << std::endl;
         node.route = get1TreeVectorSolution(sol1Tree, dim);
-        //        tsp::printVector<int>(node.route);
-        //        std::cout << tsp::cost(node.route, const_cast<const int **>(matrix)) - inf << std::endl;
-        //        std::cin >> i;
     } else {
-        //                        std::cout << "solucao inviavel: " << node.cost << ", vertice de maior grau: " << k << 
-        //                            " | fn= " << fn << " sn= " << sn << std::endl;
         node.arrows.clear();
         for (i = 0; i < dim; i++) {
             if (sol1Tree[i][k]) {
@@ -129,7 +81,6 @@ void oneTree(Node& node, int ** matrix, const unsigned dim) {
             }
         }
     }
-
 
     delete[] degree;
     free<bool>(sol1Tree, dim);
@@ -159,8 +110,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     Node nodeAux;
     double ** dMatrix = NULL, d = 0;
     int    ** cMatrix = NULL, c = 0;
-
-    unsigned i, j, nBound;
+    unsigned i, nBound;
     unsigned long count = 0;
     std::string strat = "";
 
@@ -184,10 +134,8 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     std::cout << std::endl;
 
     while (!nodes.empty()) {
-        if (count % 2000 == 0) { // log
-            std::cout << "UB: " << ub << std::setw(4) << " LB: " << lb << std::setw(4) 
-                << " GAP: " <<  gap(lb, ub) << "%" << std::setw(4) << " Numero de nos abertos: " << nodes.size() 
-                << std::setw(4) << " Iteracao: " << count << " " << strat << std::endl;
+        if (count % 7500 == 0) {
+            doLog(ub, lb, nodes.size(), count, strat);
         }
 
         if (x) {
@@ -208,8 +156,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
 
         // inviabiliza o uso dos arcos proibidos
         for (i = 0; i < nodeCurr.prohibited.size(); i++) {
-            // hungaro
-            if (x) {
+            if (x) { // hungaro
                 dMatrix[nodeCurr.prohibited[i].first][nodeCurr.prohibited[i].second] = inf;
             } else { // 1-tree
                 cMatrix[nodeCurr.prohibited[i].first][nodeCurr.prohibited[i].second] = inf;
@@ -225,11 +172,11 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
             nodeAux.prohibited.push_back(nodeCurr.arrows[i]);
             nodeAux.route.clear();
 
-            if (x) {
+            if (x) { // hungaro
                 d = dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second];
                 dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = inf;
                 hungarian(nodeAux, dMatrix, dim);
-            } else {
+            } else { // 1-tree
                 c = cMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second];
                 cMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = inf;
                 cMatrix[nodeCurr.arrows[i].second][nodeCurr.arrows[i].first] = inf;
@@ -239,15 +186,12 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
             // se nao eh uma solucao viavel TSP (ciclo hamiltoniano) mas custo esta abaixo do UB
             if (!isValidCH(nodeAux.route, dim) && nodeAux.cost < ub) {
                 nodes.push_back(nodeAux);
-
                 count++;
-            } else {
-                // solucao viavel e de menor custo, novo UB
+            } else { // solucao viavel e de menor custo, novo UB
                 if (isNewUB(nodeAux, dim, ub)) {
                     ub = nodeAux.cost;
                     bestRoute = nodeAux.route;
 
-                    std::cout << "Novo valor Upper Bound: " << ub; 
                     nBound = 0;
                     std::vector<Node>::iterator prev, it;
                     for (it = nodes.begin(); it != nodes.end(); ++it) {
@@ -257,13 +201,14 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
                             it--;
                         }
                     }
-                    std::cout << std::setw(4) << " " << nBound << " nos eliminados por bound" << std::endl;
+                    doLog(ub, lb, nodes.size(), count, strat);
+                    std::cout << nBound << " nos eliminados por bound" << std::endl;
                 }
             }
 
-            if (x) {
+            if (x) { // hungaro 
                 dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = d;
-            } else {
+            } else { // 1-tree
                 cMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = c;
                 cMatrix[nodeCurr.arrows[i].second][nodeCurr.arrows[i].first] = c;
             }
@@ -359,7 +304,7 @@ template<typename type> std::vector<int> getVectorSolution(type ** matrix, int d
  * Converte matrix binaria do algoritmo hungaro em uma rota
  */
 std::vector<int> get1TreeVectorSolution(bool ** matrix, unsigned dim) {
-    unsigned i, j, x;
+    unsigned i, j;
     std::vector<int> route;
     bool visited[dim];
 

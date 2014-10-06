@@ -9,24 +9,23 @@
  * @date: 04/10/14
  */
 
-
 #include "../include/prim.h"
 
 // A utility function to find the vertex with minimum key value, from
 // the set of vertices not yet included in MST
-unsigned minKey(int * key, bool * mstSet, const unsigned dim) {
+int minKey(int key[], bool mstSet[], const unsigned dim) {
     // Initialize min value
-    unsigned min = inf, min_index = -1, v;
+    int min_index = -1, min = inf;
 
-    for (v = 1; v < dim; v++)
-        if (mstSet[v] == false && key[v] < min)
+    for (unsigned v = 1; v < dim; v++)
+        if (mstSet[v] == false && min > key[v])
             min = key[v], min_index = v;
 
     return min_index;
 }
 
 // A utility function to print the constructed MST stored in parent[]
-void printMST(int * parent, int ** graph, const unsigned dim) {
+void printMST(int parent[], int ** graph, const unsigned dim) {
     printf("Edge   Weight\n");
     for (unsigned i = 1; i < dim; i++)
         printf("%d - %d    %d \n", parent[i], i, graph[i][parent[i]]);
@@ -35,11 +34,12 @@ void printMST(int * parent, int ** graph, const unsigned dim) {
 // Function to construct and print MST for a graph represented using adjacency
 // matrix representation
 void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1Tree, unsigned &cost) {
-    int * parent  = new int[dim]; // Array to store constructed MST
-    int * key     = new int[dim];   // Key values used to pick minimum weight edge in cut
-    bool * mstSet = new bool[dim];  // To represent set of vertices not yet included in MST
+    int parent[dim]; // Array to store constructed MST
+    int key[dim];   // Key values used to pick minimum weight edge in cut
+    bool mstSet[dim];  // To represent set of vertices not yet included in MST
 
-    unsigned count, i, u, v;
+    unsigned count, i, v;
+    int u;
 
     // Initialize all keys as INFINITE
     for (i = 0; i < dim; i++)
@@ -53,11 +53,11 @@ void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1
     for (count = 0; count < dim-2; count++) {
         // Pick thd minimum key vertex from the set of vertices
         // not yet included in MST
-        
+
+        u = minKey(key, mstSet, dim);
         // solucao inviavel, descarta construcao de MST
         if (u == -1)
             return;
-        u = minKey(key, mstSet, dim);
 
         // Add the picked vertex to the MST Set
         mstSet[u] = true;
@@ -83,7 +83,7 @@ void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1
         cost += graph[i][parent[i]];
     }
 
-    delete[] parent;
-    delete[] key;
-    delete[] mstSet;
+    //    delete[] parent;
+    //    delete[] key;
+    //    delete[] mstSet;
 }

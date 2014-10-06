@@ -14,7 +14,7 @@
 
 const int inf = 99999;
 
-unsigned minKey(int * key, bool * mstSet, const unsigned dim);
-void printMST(int * parent, int ** graph, const unsigned dim);
+int minKey(int key[], bool mstSet[], const unsigned dim);
+void printMST(int parent[], int ** graph, const unsigned dim);
 void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1Tree, unsigned &cost);
 #endif
