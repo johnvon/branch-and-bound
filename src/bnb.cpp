@@ -162,7 +162,7 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
     double ** dMatrix = NULL, d = 0;
     int    ** cMatrix = NULL, c = 0;
 
-    int s = 1; //rand() % 3; 
+    int s = 2; //rand() % 3; 
     unsigned i, j, nBound;
     unsigned long count = 0;
     std::string strat = "";
@@ -263,7 +263,6 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
                         }
                     }
                     std::cout << std::setw(4) << " " << nBound << " nos eliminados por bound" << std::endl;
-                } else {
                 }
             }
 
