@@ -26,14 +26,15 @@ struct Node {
     unsigned cost;
     int n;
     std::vector<int> route;
+    std::vector<int> pi;
     std::vector<std::pair<int,int> > arrows;
     std::vector<std::pair<int,int> > prohibited;
 };
 
-
-Node dfs(std::vector<Node>& nodes);
-Node bfs(std::vector<Node>& nodes);
-Node bestb(std::vector<Node>& nodes);
+Node dfs(std::list<Node>& nodes);
+Node bfs(std::list<Node>& nodes);
+Node bestb(std::list<Node>& nodes);
+Node randb(std::list<Node>& nodes);
 
 bool ** newBoolMatrix(const unsigned dim);
 
@@ -45,13 +46,6 @@ inline double gap(const unsigned lb, const unsigned ub) {
     return (1.0 - lb*1.0/ub)*100;
 }
 
-inline void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, std::string strat) {
-    std::cout << "UB: " << ub << std::setw(4) << " LB: " << lb << std::setw(4) 
-        << " GAP: " <<  gap(lb, ub) << "%" << std::setw(4) << " Numero de nos abertos: " << size 
-        << std::setw(4) << " Iteracao: " << count << " " << strat << std::endl;
-
-}
-
 inline bool isNewUB(Node& node, const unsigned dim, const unsigned ub) {
     return node.route.size() == dim + 1 && node.cost < ub;
 }
@@ -60,22 +54,15 @@ inline bool isValidCH(std::vector<int>& cycle, const unsigned dim) {
     return cycle.size() == dim + 1;
 }
 
-inline bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub) {
-    // define lower bound
-    lb = root.cost;
-    // assignment equivalente a um tour completo = solucao viavel ao TSP
-    if (isValidCH(root.route, dim)) {
-        ub = root.cost;
-        return true;
-    }
-    return false;
-}
+void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, std::string strat);
 
-inline void updateLB(std::vector<Node>& nodes, unsigned& lb) {
+bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub);
+
+inline void updateLB(std::list<Node>& nodes, unsigned& lb) {
     unsigned min = inf;
-    for (unsigned j = 0; j < nodes.size(); j++) {
-        if (nodes[j].cost < min) {
-            min = nodes[j].cost;
+    for (std::list<Node>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
+        if (it->cost < min) {
+            min = it->cost;
         }
     }
     if (min != (unsigned) inf && min > lb) {
@@ -83,7 +70,7 @@ inline void updateLB(std::vector<Node>& nodes, unsigned& lb) {
     }
 }
 
-bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k, unsigned& z);
+bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k);
 
 template<typename type> std::vector<int> getVectorSolution(type ** matrix, int dim);
 
@@ -101,11 +88,12 @@ Node rootBB1Tree(const int ** matrix, const unsigned dim);
 
 void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b = 0);
 
-void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, unsigned b, unsigned x);
+void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, unsigned b, unsigned x);
 
 void printNode(const Node& node);
 
 void printDegrees(unsigned * degree, const unsigned dim);
 
 void verifyCycle(std::vector<int> &sol, std::vector< std::pair<int,int> > &cycleArrows, unsigned dim);
+
 #endif 

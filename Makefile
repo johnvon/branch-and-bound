@@ -10,14 +10,14 @@ CPPC = g++
 #############################
 
 #### opcoes de compilacao e includes
-CCOPT      = -std=c++0x -g -fPIC -fexceptions -DIL_STD -Wall -O2
+CCOPT      = -std=c++0x -g -fPIC -fexceptions -DIL_STD -Wall -O3
 TSPINCLUDE = $(TSPPARSERDIR)/include
 TSPLIB     = $(TSPPARSERDIR)/obj
 CCFLAGS    = $(CCOPT) -I$(TSPINCLUDE) -L$(TSPLIB)
 #############################
 
 #### flags do linker
-CCLNFLAGS = -std=c++0x -g -I$(TSPINCLUDE) -L$(TSPLIB) -ltsp_parser
+CCLNFLAGS = -std=c++0x -g -I$(TSPINCLUDE) -L$(TSPLIB) -ltsp_parser -O3
 #############################
 
 #### diretorios com os source files e com os objs files

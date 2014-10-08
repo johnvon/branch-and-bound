@@ -1,6 +1,6 @@
-NAME: berlin52
+NAME: berlin9
 TYPE: TSP
-COMMENT: 52 locations in Berlin (Groetschel)
+COMMENT: 9 locations in Berlin (Groetschel)
 DIMENSION: 9
 EDGE_WEIGHT_TYPE: EUC_2D
 NODE_COORD_SECTION

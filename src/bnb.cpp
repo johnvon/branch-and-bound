@@ -13,9 +13,9 @@
  * se nao for otimo para o TSP, inicia B&B
  */
 void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b) {
-    std::vector<Node> nodes;
+    std::list<Node> nodes;
     std::vector<int> bestRoute;
-    unsigned lb, ub = inf;
+    unsigned lb, ub = 5000; //inf;
 
     unsigned x = 0;
     Node nodeCurr = (x) ? rootBBHung(matrix,dim) : rootBB1Tree(matrix,dim);
@@ -40,7 +40,7 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b) {
 void oneTree(Node& node, int ** matrix, const unsigned dim) {
     bool ** sol1Tree  = newBoolMatrix(dim); // Total de arestas em cada vertice
     unsigned * degree = new unsigned[dim]; // Total de arestas em cada vertice
-    unsigned fn, sn, k, z, i, cost = 0;
+    unsigned fn, sn, k, i, cost = 0;
 
     prim1Tree(dim, matrix, degree, sol1Tree, cost);
 
@@ -68,10 +68,14 @@ void oneTree(Node& node, int ** matrix, const unsigned dim) {
     sol1Tree[0][fn] = sol1Tree[fn][0] = true;
     sol1Tree[0][sn] = sol1Tree[sn][0] = true; 
     cost += matrix[0][fn] + matrix[0][sn];
-
     node.cost = cost;
 
-    if (isFeasible(dim, degree, k, z)) {
+    node.pi.clear();
+    for (i = 0; i < dim; i++) {
+        node.pi.push_back(degree[i] - 2);
+    }
+
+    if (isFeasible(dim, degree, k)) {
         node.route = get1TreeVectorSolution(sol1Tree, dim);
     } else {
         node.arrows.clear();
@@ -106,16 +110,18 @@ void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim) {
 /**
  * Branch-and-bound
  */
-void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, unsigned b, unsigned x) {
+void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, unsigned b, unsigned x) {
     Node nodeAux;
     double ** dMatrix = NULL, d = 0;
     int    ** cMatrix = NULL, c = 0;
-    unsigned i, nBound;
+    unsigned i, j, nBound;
     unsigned long count = 0;
     std::string strat = "";
+    std::list<Node>::iterator prev, it;
+    double t0, t1, t2;
 
     // referencia para funcao/estrategia usada
-    Node (* curr)(std::vector<Node>&) = NULL;
+    Node (* curr)(std::list<Node>&) = NULL;
 
     switch(b) { 
         case 0:
@@ -130,11 +136,19 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
             curr = &bestb;
             strat = "BEST-BOUND";
             break;
+        case 3:
+            curr = &randb;
+            strat = "RAND-BOUND";
+            break;
     }
     std::cout << std::endl;
 
-    while (!nodes.empty()) {
-        if (count % 7500 == 0) {
+    t0 = t1 = t2 = tsp::cpuTime();
+    doLog(ub, lb, nodes.size(), count, strat);
+
+    while (!nodes.empty()) { 
+        if (tsp::cpuTime() >= t1 + 1) {
+            t1 = tsp::cpuTime();
             doLog(ub, lb, nodes.size(), count, strat);
         }
 
@@ -152,6 +166,15 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
         // atualiza lower bound
         if (nodeCurr.cost > lb) {
             updateLB(nodes, lb);
+        }
+
+        // fortalece os bounds
+        if (x==0) {
+            for (i = 0; i < dim; i++) {
+                for (j = 0; j < dim; j++) {
+                    cMatrix[i][j] += nodeCurr.pi[i] + nodeCurr.pi[j];
+                }
+            }
         }
 
         // inviabiliza o uso dos arcos proibidos
@@ -193,12 +216,12 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
                     bestRoute = nodeAux.route;
 
                     nBound = 0;
-                    std::vector<Node>::iterator prev, it;
-                    for (it = nodes.begin(); it != nodes.end(); ++it) {
+                    for (it = nodes.begin(); it != nodes.end();) {
                         if (it->cost >= ub) {
-                            nodes.erase(it);
+                            it = nodes.erase(it);
                             nBound++;
-                            it--;
+                        } else {
+                            ++it;
                         }
                     }
                     doLog(ub, lb, nodes.size(), count, strat);
@@ -218,6 +241,13 @@ void bnb(std::vector<int>& bestRoute, std::vector<Node>& nodes, const int ** mat
             free<double>(dMatrix, dim);
         else
             free<int>(cMatrix, dim);
+
+        if (tsp::cpuTime() >= t2 + 10) {
+            t2 = tsp::cpuTime();
+            std::cout << "---------------------------------------" << std::endl;
+            std::cout << "# Tempo gasto: " << (t2-t0) << "s" << std::endl;
+            std::cout << "---------------------------------------" << std::endl;
+        }
     }
     std::cout << "FIM Branch-and-bound - LB=" << lb << " UB=" << ub << std::endl;
 }
@@ -246,8 +276,8 @@ Node rootBBHung(const int ** matrix, const unsigned dim) {
     return nodeCurr;
 }
 
-bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k, unsigned& z) {
-    unsigned i, max = 0, min = inf;
+bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k) {
+    unsigned i, max = 0;
     bool f = true;
     for (i = 0; i < dim; i++) {
         f = (degree[i]==2) ? f : false;
@@ -255,11 +285,6 @@ bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k, unsigned& z)
         if (degree[i] > max) {
             max = degree[i];
             k = i;
-        }
-
-        if (degree[i] < min) {
-            min = degree[i];
-            z = i;
         }
     }
     return f;
@@ -375,6 +400,17 @@ void verifyCycle(std::vector<int> &sol, std::vector< std::pair<int,int> > &cycle
     }
 }
 
+bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub) {
+    // define lower bound
+    lb = root.cost;
+    // assignment equivalente a um tour completo = solucao viavel ao TSP
+    if (isValidCH(root.route, dim)) {
+        ub = root.cost;
+        return true;
+    }
+    return false;
+}
+
 // ##################
 // Funcoes auxiliares
 // ##################
@@ -446,7 +482,7 @@ void printDegrees(unsigned * degree, const unsigned dim) {
 /**
  * Depth-first
  */
-Node dfs(std::vector<Node>& nodes) {
+Node dfs(std::list<Node>& nodes) {
     Node node = nodes.back();
     nodes.pop_back();
     return node;
@@ -455,24 +491,46 @@ Node dfs(std::vector<Node>& nodes) {
 /**
  * Breadth-first
  */
-Node bfs(std::vector<Node>& nodes) {
+Node bfs(std::list<Node>& nodes) {
     Node node = nodes.front();
-    nodes.erase(nodes.begin());
+    nodes.pop_front();
     return node;
 }
 
 /**
  * Best-first
  */
-Node bestb(std::vector<Node>& nodes) {
+Node bestb(std::list<Node>& nodes) {
     unsigned bb = 0, i, indexBB = 0;
-    for (i = 0; i < nodes.size(); i++) {
-        if (nodes[i].cost > bb) {
-            bb = nodes[i].cost;
+    std::list<Node>::iterator it;
+    for (it = nodes.begin(); it != nodes.end(); ++it) {
+        if (it->cost > bb) {
+            bb = it->cost;
             indexBB = i;
         }
     }
-    Node node = nodes[indexBB];
-    nodes.erase(nodes.begin() + indexBB);
+    it = nodes.begin();
+    std::advance(it, indexBB);
+    Node node = *it;
+    nodes.erase(it);
     return node;
+}
+
+/**
+ * "Random"-first
+ */
+Node randb(std::list<Node>& nodes) {
+    unsigned i = 0;
+    i = std::rand() % nodes.size();
+    std::list<Node>::iterator it = nodes.begin();
+    std::advance(it, i);
+    Node node = *it;
+    nodes.erase(it);
+    return node;
+}
+
+void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, std::string strat) {
+    std::cout << "UB: " << ub << std::setw(4) << " LB: " << lb << std::setw(4) 
+        << " GAP: " <<  gap(lb, ub) << "%" << std::setw(4) << " Numero de nos abertos: " << size 
+        << std::setw(4) << " Iteracao: " << count << " " << strat << std::endl;
 }
