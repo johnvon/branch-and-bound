@@ -22,7 +22,7 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b) {
     c.nearestNeighbor();
     ub = tsp::cost(c.getRoute(), matrix);
 
-    unsigned x = 0;
+    unsigned x = 1;
     Node nodeCurr = (x) ? rootBBHung(matrix,dim) : rootBB1Tree(matrix,dim);
 
     if (isRootOptimal(nodeCurr, dim, lb, ub)) {
@@ -39,76 +39,39 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b) {
     tsp::printVector<int>(bestRoute);
 }
 
-/**
- * Relaxacao pelo algoritmo 1-tree
- */
-void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree) {
-    unsigned * degree = new unsigned[dim]; // Total de arestas em cada vertice
-    unsigned fn, sn, k, i, cost = 0;
+Node rootBBHung(const int ** matrix, const unsigned dim) {
+    Node nodeCurr;
 
-    resetBoolMatrix(sol1Tree, dim); // Total de arestas em cada vertice
-    prim1Tree(dim, matrix, degree, sol1Tree, cost);
+    nodeCurr.n = 0;
+    //hungaro
+    double ** cMatrix = copyMatrixFromTo<int, double>(matrix, dim);
+    hungarian(nodeCurr, cMatrix, dim);
+    free<double>(cMatrix, dim);
 
-    // selecao de duas arestas mais baratas
-    fn = 1, sn = 2;
-    if (matrix[0][fn] > matrix[0][sn]) {
-        fn = 2;
-        sn = 1;
-    }
-
-    for (i = 3; i < dim; i++) {
-        if (matrix[0][i] < matrix[0][fn]) {
-            sn = fn;
-            fn = i;
-        } else {
-            if(matrix[0][i] < matrix[0][sn]) {
-                sn = i;
-            }
-        }
-    }
-
-    degree[0] = 2;
-    degree[fn]++;
-    degree[sn]++;
-    sol1Tree[0][fn] = sol1Tree[fn][0] = true;
-    sol1Tree[0][sn] = sol1Tree[sn][0] = true; 
-    cost += matrix[0][fn] + matrix[0][sn];
-    node.cost = cost;
-
-    node.pi.clear();
-    for (i = 0; i < dim; i++) {
-        node.pi.push_back(degree[i] - 2);
-    }
-
-    if (isFeasible(dim, degree, k)) {
-        node.route = get1TreeVectorSolution(sol1Tree, dim);
-    } else {
-        node.arrows.clear();
-        for (i = 0; i < dim; i++) {
-            if (sol1Tree[i][k]) {
-                node.arrows.push_back(std::make_pair<int,int>(i,k));
-            }
-        }
-    }
-
-    delete[] degree;
+    return nodeCurr;
 }
 
-/**
- * Relaxacao pelo algoritmo hungaro para problema do assignment
- */
-void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim) {
-    // chamada ao hungaro para resolucao do problema de assignment
-    hungarian_problem_t p;
-    int mode = HUNGARIAN_MODE_MINIMIZE_COST;
-    hungarian_init(&p, matrix, dim, dim, mode);
-    nodeCurr.cost = hungarian_solve(&p);
-    // converte matrix binaria da solucao para rota (possivelmente c/ subciclo)
-    nodeCurr.route = getVectorSolution<int>(p.assignment, dim);
-    // verifica ciclo e armazena como vetor de pares (arcos a serem proibidos)
-    verifyCycle(nodeCurr.route, nodeCurr.arrows, dim);
-    // finaliza hungaro
-    hungarian_free(&p);
+Node rootBB1Tree(const int ** matrix, const unsigned dim) {
+    Node nodeCurr;
+    nodeCurr.n = 0;
+    int ** cMatrix = copyMatrixFromTo<int, int>(matrix, dim);
+    bool ** sol1Tree  = newBoolMatrix(dim); // Total de arestas em cada vertice
+    oneTree(nodeCurr, cMatrix, dim, sol1Tree);
+    free<int>(cMatrix, dim);
+    free<bool>(sol1Tree, dim);
+
+    return nodeCurr;
+}
+
+bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub) {
+    // define lower bound
+    lb = root.cost;
+    // assignment equivalente a um tour completo = solucao viavel ao TSP
+    if (isValidCH(root.route, dim)) {
+        ub = root.cost;
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -117,10 +80,12 @@ void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim) {
 void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, unsigned b, unsigned x) {
     Node nodeAux;
     bool   ** sol1Tree = newBoolMatrix(dim);
-    double ** dMatrix  = NULL, d = 0, t0, t1, t2;
+    double ** dMatrix  = NULL, d = 0;
     int    ** cMatrix  = NULL, c = 0;
+    time_t t0, t1, t2;
     unsigned i, j, nBound;
     unsigned long count = 0;
+
     std::string strat = "";
     std::list<Node>::iterator prev, it, itCurr;
     // referencia para funcao/estrategia usada
@@ -145,12 +110,12 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
             break;
     }
 
-    t0 = t1 = t2 = tsp::cpuTime();
+    t0 = t1 = t2 = time(NULL); 
     doLog(ub, lb, nodes.size(), count, strat);
 
-    while (!nodes.empty()) { 
-        if (tsp::cpuTime() > t1 + 1) {
-            t1 = tsp::cpuTime();
+    while (!nodes.empty()) {
+        if (difftime(time(NULL),t1) > 1) {
+            time(&t1);
             doLog(ub, lb, nodes.size(), count, strat);
         }
 
@@ -243,10 +208,10 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
         else
             free<int>(cMatrix, dim);
 
-        if (tsp::cpuTime() >= t2 + 30) {
-            t2 = tsp::cpuTime();
+        if (difftime(time(NULL), t2) > 30) { 
+            time(&t2);
             std::cout << "---------------------------------------" << std::endl;
-            std::cout << "# Tempo gasto: " << (t2-t0) << "s" << std::endl;
+            std::cout << "# Tempo gasto: " << difftime(t2,t0) << "s" << std::endl;
             std::cout << "---------------------------------------" << std::endl;
         }
         nodes.erase(itCurr);
@@ -255,42 +220,21 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
     free<bool>(sol1Tree, dim);
 }
 
-Node rootBB1Tree(const int ** matrix, const unsigned dim) {
-    Node nodeCurr;
-    nodeCurr.n = 0;
-    int ** cMatrix = copyMatrixFromTo<int, int>(matrix, dim);
-    bool ** sol1Tree  = newBoolMatrix(dim); // Total de arestas em cada vertice
-    oneTree(nodeCurr, cMatrix, dim, sol1Tree);
-    free<int>(cMatrix, dim);
-    free<bool>(sol1Tree, dim);
-
-    return nodeCurr;
-}
-
-Node rootBBHung(const int ** matrix, const unsigned dim) {
-    Node nodeCurr;
-
-    nodeCurr.n = 0;
-    //hungaro
-    double ** cMatrix = copyMatrixFromTo<int, double>(matrix, dim);
-    hungarian(nodeCurr, cMatrix, dim);
-    free<double>(cMatrix, dim);
-
-    return nodeCurr;
-}
-
-bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k) {
-    unsigned i, max = 0;
-    bool f = true;
-    for (i = 0; i < dim; i++) {
-        f = (degree[i]==2) ? f : false;
-
-        if (degree[i] > max) {
-            max = degree[i];
-            k = i;
-        }
-    }
-    return f;
+/**
+ * Relaxacao pelo algoritmo hungaro para o problema do assignment
+ */
+void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim) {
+    // chamada ao hungaro para resolucao do problema de assignment
+    hungarian_problem_t p;
+    int mode = HUNGARIAN_MODE_MINIMIZE_COST;
+    hungarian_init(&p, matrix, dim, dim, mode);
+    nodeCurr.cost = hungarian_solve(&p);
+    // converte matrix binaria da solucao para rota (possivelmente c/ subciclo)
+    nodeCurr.route = getVectorSolution<int>(p.assignment, dim);
+    // verifica ciclo e armazena como vetor de pares (arcos a serem proibidos)
+    verifyCycle(nodeCurr.route, nodeCurr.arrows, dim);
+    // finaliza hungaro
+    hungarian_free(&p);
 }
 
 /**
@@ -325,37 +269,6 @@ template<typename type> std::vector<int> getVectorSolution(type ** matrix, int d
             } 
         }
     }
-    return route;
-}
-
-/**
- * Converte matrix binaria do algoritmo hungaro em uma rota
- */
-std::vector<int> get1TreeVectorSolution(bool ** matrix, unsigned dim) {
-    unsigned i, j;
-    std::vector<int> route;
-    bool visited[dim];
-
-    //    tsp::printMatrix(const_cast<const bool **>(matrix), dim, 3);
-    // partindo da primeira cidade
-
-    for(i=0; i<dim; i++)
-        visited[i] = false;
-
-    visited[0] = true;
-    i = 0;
-    route.push_back(0);
-    while (route.size() < dim) {
-        for (j = 0; j < dim; j++) {
-            if (!visited[j] && matrix[i][j]) {
-                route.push_back(j);
-                visited[j] = true;
-                i = j;
-                break;
-            } 
-        }
-    }
-    route.push_back(0);
     return route;
 }
 
@@ -403,15 +316,104 @@ void verifyCycle(std::vector<int> &sol, std::vector< std::pair<int,int> > &cycle
     }
 }
 
-bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub) {
-    // define lower bound
-    lb = root.cost;
-    // assignment equivalente a um tour completo = solucao viavel ao TSP
-    if (isValidCH(root.route, dim)) {
-        ub = root.cost;
-        return true;
+/**
+ * Relaxacao 1-tree
+ */
+void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree) {
+    unsigned * degree = new unsigned[dim]; // Total de arestas em cada vertice
+    unsigned fn, sn, k, i, cost = 0;
+
+    resetBoolMatrix(sol1Tree, dim); // Total de arestas em cada vertice
+    prim1Tree(dim, matrix, degree, sol1Tree, cost);
+
+    // selecao de duas arestas mais baratas
+    fn = 1, sn = 2;
+    if (matrix[0][fn] > matrix[0][sn]) {
+        fn = 2;
+        sn = 1;
     }
-    return false;
+
+    for (i = 3; i < dim; i++) {
+        if (matrix[0][i] < matrix[0][fn]) {
+            sn = fn;
+            fn = i;
+        } else {
+            if(matrix[0][i] < matrix[0][sn]) {
+                sn = i;
+            }
+        }
+    }
+
+    degree[0] = 2;
+    degree[fn]++;
+    degree[sn]++;
+    sol1Tree[0][fn] = sol1Tree[fn][0] = true;
+    sol1Tree[0][sn] = sol1Tree[sn][0] = true; 
+    cost += matrix[0][fn] + matrix[0][sn];
+    node.cost = cost;
+
+    node.pi.clear();
+    for (i = 0; i < dim; i++) {
+        node.pi.push_back(degree[i] - 2);
+    }
+
+    if (isFeasible(dim, degree, k)) {
+        node.route = get1TreeVectorSolution(sol1Tree, dim);
+    } else {
+        node.arrows.clear();
+        for (i = 0; i < dim; i++) {
+            if (sol1Tree[i][k]) {
+                node.arrows.push_back(std::make_pair<int,int>(i,k));
+            }
+        }
+    }
+
+    delete[] degree;
+}
+
+bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k) {
+    unsigned i, max = 0;
+    bool f = true;
+    for (i = 0; i < dim; i++) {
+        f = (degree[i]==2) ? f : false;
+
+        if (degree[i] > max) {
+            max = degree[i];
+            k = i;
+        }
+    }
+    return f;
+}
+
+/**
+ * Converte matrix binaria do algoritmo hungaro em uma rota
+ */
+std::vector<int> get1TreeVectorSolution(bool ** matrix, unsigned dim) {
+    unsigned i, j;
+    std::vector<int> route;
+    bool visited[dim];
+
+    //    tsp::printMatrix(const_cast<const bool **>(matrix), dim, 3);
+    // partindo da primeira cidade
+
+    for(i=0; i<dim; i++)
+        visited[i] = false;
+
+    visited[0] = true;
+    i = 0;
+    route.push_back(0);
+    while (route.size() < dim) {
+        for (j = 0; j < dim; j++) {
+            if (!visited[j] && matrix[i][j]) {
+                route.push_back(j);
+                visited[j] = true;
+                i = j;
+                break;
+            } 
+        }
+    }
+    route.push_back(0);
+    return route;
 }
 
 // ##################
