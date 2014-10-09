@@ -15,7 +15,12 @@
 void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b) {
     std::list<Node> nodes;
     std::vector<int> bestRoute;
-    unsigned lb, ub = 5000; //inf;
+    unsigned lb, ub;
+
+    // heuristica construtiva para definir UB
+    Construct c(matrix, dim);
+    c.nearestNeighbor();
+    ub = tsp::cost(c.getRoute(), matrix);
 
     unsigned x = 0;
     Node nodeCurr = (x) ? rootBBHung(matrix,dim) : rootBB1Tree(matrix,dim);
@@ -117,11 +122,11 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
     unsigned i, j, nBound;
     unsigned long count = 0;
     std::string strat = "";
-    std::list<Node>::iterator prev, it;
+    std::list<Node>::iterator prev, it, itCurr;
     double t0, t1, t2;
 
     // referencia para funcao/estrategia usada
-    Node (* curr)(std::list<Node>&) = NULL;
+    std::list<Node>::iterator (* curr)(std::list<Node>&) = NULL;
 
     switch(b) { 
         case 0:
@@ -141,13 +146,12 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
             strat = "RAND-BOUND";
             break;
     }
-    std::cout << std::endl;
 
     t0 = t1 = t2 = tsp::cpuTime();
     doLog(ub, lb, nodes.size(), count, strat);
 
     while (!nodes.empty()) { 
-        if (tsp::cpuTime() >= t1 + 1) {
+        if (tsp::cpuTime() > t1 + 1) {
             t1 = tsp::cpuTime();
             doLog(ub, lb, nodes.size(), count, strat);
         }
@@ -161,10 +165,10 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
         }
 
         // seleciona (e retira da lista) no de acordo com estrategia
-        Node nodeCurr = curr(nodes);
+        itCurr = curr(nodes);
 
         // atualiza lower bound
-        if (nodeCurr.cost > lb) {
+        if (itCurr->cost > lb) {
             updateLB(nodes, lb);
         }
 
@@ -172,37 +176,38 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
         if (x==0) {
             for (i = 0; i < dim; i++) {
                 for (j = 0; j < dim; j++) {
-                    cMatrix[i][j] += nodeCurr.pi[i] + nodeCurr.pi[j];
+                    if (cMatrix[i][j] != inf)
+                        cMatrix[i][j] += itCurr->pi[i] + itCurr->pi[j];
                 }
             }
         }
 
         // inviabiliza o uso dos arcos proibidos
-        for (i = 0; i < nodeCurr.prohibited.size(); i++) {
+        for (i = 0; i < itCurr->prohibited.size(); i++) {
             if (x) { // hungaro
-                dMatrix[nodeCurr.prohibited[i].first][nodeCurr.prohibited[i].second] = inf;
+                dMatrix[itCurr->prohibited[i].first][itCurr->prohibited[i].second] = inf;
             } else { // 1-tree
-                cMatrix[nodeCurr.prohibited[i].first][nodeCurr.prohibited[i].second] = inf;
-                cMatrix[nodeCurr.prohibited[i].second][nodeCurr.prohibited[i].first] = inf;
+                cMatrix[itCurr->prohibited[i].first][itCurr->prohibited[i].second] = inf;
+                cMatrix[itCurr->prohibited[i].second][itCurr->prohibited[i].first] = inf;
             }
         }
 
         // cada novo no eh uma copia do no atual adicionado de um dos arcos como proibidos
-        for (i = 0; i < nodeCurr.arrows.size(); i++) {
+        for (i = 0; i < itCurr->arrows.size(); i++) {
             // branch-and-bound
             nodeAux.n = (int) nodes.size() + 1;
-            nodeAux.prohibited = nodeCurr.prohibited;
-            nodeAux.prohibited.push_back(nodeCurr.arrows[i]);
+            nodeAux.prohibited = itCurr->prohibited;
+            nodeAux.prohibited.push_back(itCurr->arrows[i]);
             nodeAux.route.clear();
 
             if (x) { // hungaro
-                d = dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second];
-                dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = inf;
+                d = dMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second];
+                dMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second] = inf;
                 hungarian(nodeAux, dMatrix, dim);
             } else { // 1-tree
-                c = cMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second];
-                cMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = inf;
-                cMatrix[nodeCurr.arrows[i].second][nodeCurr.arrows[i].first] = inf;
+                c = cMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second];
+                cMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second] = inf;
+                cMatrix[itCurr->arrows[i].second][itCurr->arrows[i].first] = inf;
                 oneTree(nodeAux, cMatrix, dim);
             }
 
@@ -224,16 +229,14 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
                             ++it;
                         }
                     }
-                    doLog(ub, lb, nodes.size(), count, strat);
-                    std::cout << nBound << " nos eliminados por bound" << std::endl;
                 }
             }
 
             if (x) { // hungaro 
-                dMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = d;
+                dMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second] = d;
             } else { // 1-tree
-                cMatrix[nodeCurr.arrows[i].first][nodeCurr.arrows[i].second] = c;
-                cMatrix[nodeCurr.arrows[i].second][nodeCurr.arrows[i].first] = c;
+                cMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second] = c;
+                cMatrix[itCurr->arrows[i].second][itCurr->arrows[i].first] = c;
             }
         }
 
@@ -242,12 +245,13 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
         else
             free<int>(cMatrix, dim);
 
-        if (tsp::cpuTime() >= t2 + 10) {
+        if (tsp::cpuTime() >= t2 + 30) {
             t2 = tsp::cpuTime();
             std::cout << "---------------------------------------" << std::endl;
             std::cout << "# Tempo gasto: " << (t2-t0) << "s" << std::endl;
             std::cout << "---------------------------------------" << std::endl;
         }
+        nodes.erase(itCurr);
     }
     std::cout << "FIM Branch-and-bound - LB=" << lb << " UB=" << ub << std::endl;
 }
@@ -479,55 +483,6 @@ void printDegrees(unsigned * degree, const unsigned dim) {
     std::cout << std::endl;
 }
 
-/**
- * Depth-first
- */
-Node dfs(std::list<Node>& nodes) {
-    Node node = nodes.back();
-    nodes.pop_back();
-    return node;
-}
-
-/**
- * Breadth-first
- */
-Node bfs(std::list<Node>& nodes) {
-    Node node = nodes.front();
-    nodes.pop_front();
-    return node;
-}
-
-/**
- * Best-first
- */
-Node bestb(std::list<Node>& nodes) {
-    unsigned bb = 0, i, indexBB = 0;
-    std::list<Node>::iterator it;
-    for (it = nodes.begin(); it != nodes.end(); ++it) {
-        if (it->cost > bb) {
-            bb = it->cost;
-            indexBB = i;
-        }
-    }
-    it = nodes.begin();
-    std::advance(it, indexBB);
-    Node node = *it;
-    nodes.erase(it);
-    return node;
-}
-
-/**
- * "Random"-first
- */
-Node randb(std::list<Node>& nodes) {
-    unsigned i = 0;
-    i = std::rand() % nodes.size();
-    std::list<Node>::iterator it = nodes.begin();
-    std::advance(it, i);
-    Node node = *it;
-    nodes.erase(it);
-    return node;
-}
 
 void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, std::string strat) {
     std::cout << "UB: " << ub << std::setw(4) << " LB: " << lb << std::setw(4) 

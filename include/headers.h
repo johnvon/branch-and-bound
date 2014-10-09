@@ -21,6 +21,7 @@
 #include "../include/prim.h"
 
 #include "Util.h"
+#include "Construct.h"
 
 struct Node {
     unsigned cost;
@@ -31,10 +32,45 @@ struct Node {
     std::vector<std::pair<int,int> > prohibited;
 };
 
-Node dfs(std::list<Node>& nodes);
-Node bfs(std::list<Node>& nodes);
-Node bestb(std::list<Node>& nodes);
-Node randb(std::list<Node>& nodes);
+/**
+ * Depth-first
+ */
+inline std::list<Node>::iterator dfs(std::list<Node>& nodes) {
+    return --nodes.end();
+}
+
+/**
+ * Breadth-first
+ */
+inline std::list<Node>::iterator bfs(std::list<Node>& nodes) {
+    return nodes.begin();
+}
+
+/**
+ * Best-first
+ */
+inline std::list<Node>::iterator bestb(std::list<Node>& nodes) {
+    unsigned bb = 0, i, indexBB = 0;
+    std::list<Node>::iterator it;
+    for (it = nodes.begin(); it != nodes.end(); ++it) {
+        if (it->cost > bb) {
+            bb = it->cost;
+            indexBB = i;
+        }
+    }
+    it = nodes.begin();
+    std::advance(it, indexBB);
+    return it;
+}
+
+/**
+ * "Random"-first
+ */
+inline std::list<Node>::iterator randb(std::list<Node>& nodes) {
+    std::list<Node>::iterator it = nodes.begin();
+    std::advance(it, rand() % nodes.size());
+    return it;
+}
 
 bool ** newBoolMatrix(const unsigned dim);
 

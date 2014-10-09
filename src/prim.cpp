@@ -15,7 +15,7 @@
 // the set of vertices not yet included in MST
 int minKey(int key[], bool mstSet[], const unsigned dim) {
     // Initialize min value
-    int min_index = -1, min = inf;
+    int min_index = -1, min = inf+1;
 
     for (unsigned v = 1; v < dim; v++)
         if (mstSet[v] == false && min > key[v])
@@ -70,7 +70,7 @@ void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1
             // graph[u][v] is non zero only for adjacent vertices of m
             // mstSet[v] is false for vertices not yet included in MST
             // Update the key only if graph[u][v] is smaller than key[v]
-            if (graph[u][v] && mstSet[v] == false && graph[u][v] <  key[v])
+            if (graph[u][v] != inf && mstSet[v] == false && graph[u][v] <  key[v])
                 parent[v]  = u, key[v] = graph[u][v];
     }
 
