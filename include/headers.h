@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <iostream>
 #include <list>
+#include <cmath>
 #include <string>
 #include <unistd.h>
 #include <utility>
@@ -21,6 +22,7 @@
 #include "../include/prim.h"
 
 #include "Construct.h"
+#include "LocalSearch.h"
 #include "Util.h"
 
 struct Node {
@@ -28,6 +30,7 @@ struct Node {
     int n;
     std::vector<int> route;
     std::vector<int> pi;
+    std::vector<double> u;
     std::vector<std::pair<int,int> > arrows;
     std::vector<std::pair<int,int> > prohibited;
 };
@@ -97,23 +100,30 @@ inline std::list<Node>::iterator randb(std::list<Node>& nodes) {
 
 Node rootBB1Tree(const int ** matrix, const unsigned dim);
 Node rootBBHung(const int ** matrix, const unsigned dim);
+Node rootBBLR(const int ** matrix, const unsigned dim, unsigned ub);
 
 bool ** newBoolMatrix(const unsigned dim);
 bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k);
 bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub);
 std::vector<int> get1TreeVectorSolution(bool ** matrix, unsigned dim);
-template<typename from, typename to> to ** copyMatrixFromTo(const from ** matrix, const unsigned dim, const unsigned s = 0);
+template<typename from, typename to> to ** copyMatrixFromTo(const from ** matrix, 
+        const unsigned dim, const unsigned s = 0);
 template<typename type> std::vector<int> getVectorSolution(type ** matrix, int dim);
 template<typename type> void free(type ** matrix, const unsigned dim);
-void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, unsigned b, unsigned x);
-void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, std::string strat);
+void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix, 
+        const unsigned dim, unsigned& lb, unsigned& ub, unsigned b, unsigned x);
+void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, 
+        std::string strat);
 void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim);
 void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b = 0);
-void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree);
-void prim(const unsigned dim, unsigned& cost, int ** graph, bool ** sol1Tree, unsigned * degree);
+void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree, 
+        unsigned * degree);
+void prim(const unsigned dim, unsigned& cost, int ** graph, bool ** sol1Tree, 
+        unsigned * degree);
 void printDegrees(unsigned * degree, const unsigned dim);
 void printNode(const Node& node);
 void resetBoolMatrix(bool ** matrix, const unsigned dim);
-void verifyCycle(std::vector<int> &sol, std::vector< std::pair<int,int> > &cycleArrows, unsigned dim);
+void verifyCycle(std::vector<int> &sol, 
+        std::vector< std::pair<int,int> > &cycleArrows, unsigned dim);
 
 #endif 

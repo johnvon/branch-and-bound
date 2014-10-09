@@ -13,17 +13,29 @@
  * se nao for otimo para o TSP, inicia B&B
  */
 void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b) {
+    Node nodeCurr;
     std::list<Node> nodes;
     std::vector<int> bestRoute;
     unsigned lb, ub;
 
-    // heuristica construtiva para definir UB
+    // heuristica ILS-RVND
     Construct c(matrix, dim);
-    c.nearestNeighbor();
-    ub = tsp::cost(c.getRoute(), matrix);
+    LocalSearch l(matrix, dim);
 
-    unsigned x = 1;
-    Node nodeCurr = (x) ? rootBBHung(matrix,dim) : rootBB1Tree(matrix,dim);
+    ub = l.ilsRvnd(c, 0, 5);
+
+    unsigned x = 2;
+    switch(x) {
+        case 0: // Hungaro
+            nodeCurr = rootBBHung(matrix,dim);
+            break;
+        case 1: // 1-Tree
+            nodeCurr = rootBB1Tree(matrix,dim);
+            break;
+        case 2: // Lagrangeana
+            nodeCurr = rootBBLR(matrix,dim,ub);
+            break;
+    }
 
     if (isRootOptimal(nodeCurr, dim, lb, ub)) {
         std::cout << "Solucao otima encontrada! " << std::endl;
@@ -54,13 +66,80 @@ Node rootBBHung(const int ** matrix, const unsigned dim) {
 Node rootBB1Tree(const int ** matrix, const unsigned dim) {
     Node nodeCurr;
     nodeCurr.n = 0;
-    int ** cMatrix = copyMatrixFromTo<int, int>(matrix, dim);
-    bool ** sol1Tree  = newBoolMatrix(dim); // Total de arestas em cada vertice
-    oneTree(nodeCurr, cMatrix, dim, sol1Tree);
+    int ** cMatrix   = copyMatrixFromTo<int, int>(matrix, dim);
+    bool ** sol1Tree = newBoolMatrix(dim); // Total de arestas em cada vertice
+    unsigned * degree = new unsigned[dim];
+
+    oneTree(nodeCurr, cMatrix, dim, sol1Tree, degree);
+
+    delete[] degree;
     free<int>(cMatrix, dim);
     free<bool>(sol1Tree, dim);
 
     return nodeCurr;
+}
+
+inline unsigned sumsqr(double * subgradient, const unsigned dim) {
+    unsigned i, t = 0;
+    for (i = 0; i < dim; i++) {
+        t += pow((2 - subgradient[i]), 2);
+    }
+    return t;
+}
+
+inline double sum(std::vector<double>& u) {
+    double t = 0;
+    for (std::vector<double>::iterator it = u.begin();
+            it != u.end(); ++it) {
+        t += *it;
+    }
+    return t;
+}
+
+Node rootBBLR(const int ** matrix, const unsigned dim, unsigned ub) {
+    Node nodeCurr;
+    nodeCurr.n = 0;
+    unsigned i, j;
+    double e = 1.0;
+
+    for (i = 0; i < dim; i++) {
+        nodeCurr.u.push_back(0);
+    }
+
+    int ** cMatrix = copyMatrixFromTo<int, int>(matrix, dim);
+    bool ** sol1Tree = newBoolMatrix(dim); // Total de arestas em cada vertice
+    double * subgradient = new double[dim];
+    unsigned * degree = new unsigned[dim];
+
+    do { 
+        oneTree(nodeCurr, cMatrix, dim, sol1Tree, degree);
+        nodeCurr.cost += 2 * sum(nodeCurr.u);
+        printDegrees(degree, dim);
+        for (i = 0; i < dim; i++) {
+            subgradient[i] = 2 - degree[i];
+            std::cout << subgradient[i] << " ";
+        }
+        std::cout << std::endl;
+        for (i = 0; i < dim; i++) {
+            nodeCurr.u[i] = nodeCurr.u[i] + e * ((ub - nodeCurr.cost) / sumsqr(subgradient, dim)) * subgradient[i];
+        }
+
+        for (i = 0; i < dim; i++) {
+            for (j = 0; j < dim; j++) {
+                cMatrix[i][j] -= nodeCurr.u[i] + nodeCurr.u[j];
+            }
+        }
+
+        tsp::printMatrix(const_cast<const int **>(cMatrix), dim, 8);
+
+        std::cin >> i;
+    } while (e > 0.001);
+
+    free<bool>(sol1Tree, dim);
+    delete[] subgradient;
+    delete[] degree;
+    return nodeCurr;
+
 }
 
 bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub) {
@@ -83,7 +162,7 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
     double ** dMatrix  = NULL, d = 0;
     int    ** cMatrix  = NULL, c = 0;
     time_t t0, t1, t2;
-    unsigned i, j, nBound;
+    unsigned i, j, nBound, * degree = new unsigned[dim];
     unsigned long count = 0;
 
     std::string strat = "";
@@ -91,7 +170,7 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
     // referencia para funcao/estrategia usada
     std::list<Node>::iterator (* curr)(std::list<Node>&) = NULL;
 
-    switch(b) { 
+    switch(b) {
         case 0:
             curr = &dfs;
             strat = "DFS";
@@ -171,7 +250,7 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
                 c = cMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second];
                 cMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second] = inf;
                 cMatrix[itCurr->arrows[i].second][itCurr->arrows[i].first] = inf;
-                oneTree(nodeAux, cMatrix, dim, sol1Tree);
+                oneTree(nodeAux, cMatrix, dim, sol1Tree, degree);
             }
 
             // se nao eh uma solucao viavel TSP (ciclo hamiltoniano) mas custo esta abaixo do UB
@@ -185,7 +264,7 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
 
                     nBound = 0;
                     for (it = nodes.begin(); it != nodes.end();) {
-                        if (it->cost >= ub) {
+                        if (it->cost > ub && it != itCurr) {
                             it = nodes.erase(it);
                             nBound++;
                         } else {
@@ -319,8 +398,7 @@ void verifyCycle(std::vector<int> &sol, std::vector< std::pair<int,int> > &cycle
 /**
  * Relaxacao 1-tree
  */
-void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree) {
-    unsigned * degree = new unsigned[dim]; // Total de arestas em cada vertice
+void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree, unsigned * degree) {
     unsigned fn, sn, k, i, cost = 0;
 
     resetBoolMatrix(sol1Tree, dim); // Total de arestas em cada vertice
@@ -367,8 +445,6 @@ void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree) {
             }
         }
     }
-
-    delete[] degree;
 }
 
 bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k) {

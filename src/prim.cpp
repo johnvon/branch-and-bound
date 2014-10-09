@@ -24,13 +24,6 @@ int minKey(int key[], bool mstSet[], const unsigned dim) {
     return min_index;
 }
 
-// A utility function to print the constructed MST stored in parent[]
-void printMST(int parent[], int ** graph, const unsigned dim) {
-    printf("Edge   Weight\n");
-    for (unsigned i = 1; i < dim; i++)
-        printf("%d - %d    %d \n", parent[i], i, graph[i][parent[i]]);
-}
-
 // Function to construct and print MST for a graph represented using adjacency
 // matrix representation
 void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1Tree, unsigned &cost) {
@@ -73,9 +66,6 @@ void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1
             if (graph[u][v] != inf && mstSet[v] == false && graph[u][v] <  key[v])
                 parent[v]  = u, key[v] = graph[u][v];
     }
-
-    // print the constructed MST
-    //printMST(parent, graph, dim);
 
     for (i = 2; i < dim; i++) {
         degree[i]++, degree[parent[i]]++;
