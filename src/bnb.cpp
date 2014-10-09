@@ -42,11 +42,11 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b) {
 /**
  * Relaxacao pelo algoritmo 1-tree
  */
-void oneTree(Node& node, int ** matrix, const unsigned dim) {
-    bool ** sol1Tree  = newBoolMatrix(dim); // Total de arestas em cada vertice
+void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree) {
     unsigned * degree = new unsigned[dim]; // Total de arestas em cada vertice
     unsigned fn, sn, k, i, cost = 0;
 
+    resetBoolMatrix(sol1Tree, dim); // Total de arestas em cada vertice
     prim1Tree(dim, matrix, degree, sol1Tree, cost);
 
     // selecao de duas arestas mais baratas
@@ -92,7 +92,6 @@ void oneTree(Node& node, int ** matrix, const unsigned dim) {
     }
 
     delete[] degree;
-    free<bool>(sol1Tree, dim);
 }
 
 /**
@@ -117,14 +116,13 @@ void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim) {
  */
 void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix, const unsigned dim, unsigned& lb, unsigned& ub, unsigned b, unsigned x) {
     Node nodeAux;
-    double ** dMatrix = NULL, d = 0;
-    int    ** cMatrix = NULL, c = 0;
+    bool   ** sol1Tree = newBoolMatrix(dim);
+    double ** dMatrix  = NULL, d = 0, t0, t1, t2;
+    int    ** cMatrix  = NULL, c = 0;
     unsigned i, j, nBound;
     unsigned long count = 0;
     std::string strat = "";
     std::list<Node>::iterator prev, it, itCurr;
-    double t0, t1, t2;
-
     // referencia para funcao/estrategia usada
     std::list<Node>::iterator (* curr)(std::list<Node>&) = NULL;
 
@@ -208,7 +206,7 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
                 c = cMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second];
                 cMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second] = inf;
                 cMatrix[itCurr->arrows[i].second][itCurr->arrows[i].first] = inf;
-                oneTree(nodeAux, cMatrix, dim);
+                oneTree(nodeAux, cMatrix, dim, sol1Tree);
             }
 
             // se nao eh uma solucao viavel TSP (ciclo hamiltoniano) mas custo esta abaixo do UB
@@ -254,16 +252,17 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
         nodes.erase(itCurr);
     }
     std::cout << "FIM Branch-and-bound - LB=" << lb << " UB=" << ub << std::endl;
+    free<bool>(sol1Tree, dim);
 }
 
 Node rootBB1Tree(const int ** matrix, const unsigned dim) {
     Node nodeCurr;
-
     nodeCurr.n = 0;
-    // one tree
     int ** cMatrix = copyMatrixFromTo<int, int>(matrix, dim);
-    oneTree(nodeCurr, cMatrix, dim);
+    bool ** sol1Tree  = newBoolMatrix(dim); // Total de arestas em cada vertice
+    oneTree(nodeCurr, cMatrix, dim, sol1Tree);
     free<int>(cMatrix, dim);
+    free<bool>(sol1Tree, dim);
 
     return nodeCurr;
 }
@@ -421,14 +420,22 @@ bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub) {
 
 bool ** newBoolMatrix(const unsigned dim) {
     bool ** bMatrix = new bool * [dim];
-    unsigned i, j;
-    for (i = 0; i < dim; i++) {
+    for (unsigned i = 0; i < dim; i++) {
         bMatrix[i] = new bool[dim];
-        for (j = 0; j < dim; j++) {
+        for (unsigned j = 0; j < dim; j++) {
             bMatrix[i][j] = false; 
         }
     }
     return bMatrix;
+}
+
+void resetBoolMatrix(bool ** bMatrix, const unsigned dim) {
+    for (unsigned i = 0; i < dim; i++) {
+        for (unsigned j = i; j < dim; j++) {
+            bMatrix[i][j] = false; 
+            bMatrix[j][i] = false;
+        }
+    }
 }
 
 template<typename from, typename to> to ** copyMatrixFromTo(const from ** matrix, const unsigned dim, const unsigned s = 0) {

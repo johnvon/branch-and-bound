@@ -72,6 +72,8 @@ inline std::list<Node>::iterator randb(std::list<Node>& nodes) {
     return it;
 }
 
+void resetBoolMatrix(bool ** matrix, const unsigned dim);
+
 bool ** newBoolMatrix(const unsigned dim);
 
 template<typename from, typename to> to ** copyMatrixFromTo(const from ** matrix, const unsigned dim, const unsigned s = 0);
@@ -116,11 +118,11 @@ void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim);
 
 void prim(const unsigned dim, unsigned& cost, int ** graph, bool ** sol1Tree, unsigned * degree);
 
-void oneTree(Node& node, int ** matrix, const unsigned dim);
-
-Node rootBBHung(const int ** matrix, const unsigned dim);
+void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree);
 
 Node rootBB1Tree(const int ** matrix, const unsigned dim);
+
+Node rootBBHung(const int ** matrix, const unsigned dim);
 
 void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b = 0);
 
