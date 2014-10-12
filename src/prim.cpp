@@ -13,9 +13,11 @@
 
 // A utility function to find the vertex with minimum key value, from
 // the set of vertices not yet included in MST
-int minKey(int key[], bool mstSet[], const unsigned dim) {
+template<typename type>
+int minKey(type key[], bool mstSet[], const unsigned dim) {
     // Initialize min value
-    int min_index = -1, min = inf+1;
+    int min_index = -1;
+    type min = inf+1;
 
     for (unsigned v = 1; v < dim; v++)
         if (mstSet[v] == false && min > key[v])
@@ -26,9 +28,10 @@ int minKey(int key[], bool mstSet[], const unsigned dim) {
 
 // Function to construct and print MST for a graph represented using adjacency
 // matrix representation
-void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1Tree, unsigned &cost) {
+template<typename type>
+void prim1Tree(const unsigned dim, type ** graph, unsigned * degree, bool ** sol1Tree, type &cost) {
     int parent[dim]; // Array to store constructed MST
-    int key[dim];   // Key values used to pick minimum weight edge in cut
+    type key[dim];   // Key values used to pick minimum weight edge in cut
     bool mstSet[dim];  // To represent set of vertices not yet included in MST
 
     unsigned count, i, v;
@@ -47,7 +50,7 @@ void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1
         // Pick thd minimum key vertex from the set of vertices
         // not yet included in MST
 
-        u = minKey(key, mstSet, dim);
+        u = minKey<type>(key, mstSet, dim);
         // solucao inviavel, descarta construcao de MST
         if (u == -1)
             return;
@@ -77,3 +80,10 @@ void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1
     //    delete[] key;
     //    delete[] mstSet;
 }
+
+template int minKey<int>(int key[], bool mstSet[], const unsigned dim);
+template int minKey<double>(double key[], bool mstSet[], const unsigned dim);
+
+template void prim1Tree<int>(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1Tree, int &cost);
+template void prim1Tree<double>(const unsigned dim, double ** graph, unsigned * degree, bool ** sol1Tree, double &cost);
+

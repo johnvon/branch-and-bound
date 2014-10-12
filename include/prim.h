@@ -14,6 +14,17 @@
 
 const int inf = 99999;
 
-int minKey(int key[], bool mstSet[], const unsigned dim);
-void prim1Tree(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1Tree, unsigned &cost);
+template<typename type>
+int minKey(type key[], bool mstSet[], const unsigned dim);
+
+template<typename type>
+void prim1Tree(const unsigned dim, type ** graph, unsigned * degree, bool ** sol1Tree, type &cost);
+
+extern template int minKey<int>(int key[], bool mstSet[], const unsigned dim);
+extern template int minKey<double>(double key[], bool mstSet[], const unsigned dim);
+
+extern template void prim1Tree<int>(const unsigned dim, int ** graph, unsigned * degree, bool ** sol1Tree, int &cost);
+extern template void prim1Tree<double>(const unsigned dim, double ** graph, unsigned * degree, bool ** sol1Tree, double &cost);
+
+
 #endif

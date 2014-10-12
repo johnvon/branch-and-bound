@@ -26,7 +26,7 @@
 #include "Util.h"
 
 struct Node {
-    unsigned cost;
+    double cost;
     int n;
     std::vector<int> route;
     std::vector<int> pi;
@@ -36,7 +36,7 @@ struct Node {
 };
 
 inline bool isNewUB(Node& node, const unsigned dim, const unsigned ub) {
-    return node.route.size() == dim + 1 && node.cost < ub;
+    return node.route.size() == dim + 1 && node.cost <= ub;
 }
 
 inline bool isValidCH(std::vector<int>& cycle, const unsigned dim) {
@@ -56,6 +56,23 @@ inline void updateLB(std::list<Node>& nodes, unsigned& lb) {
     if (min != (unsigned) inf && min > lb) {
         lb = min;
     }
+}
+
+inline unsigned sumsqr(double * subgradient, const unsigned dim) {
+    unsigned i, t = 0;
+    for (i = 0; i < dim; i++) {
+        t += pow((2 - subgradient[i]), 2);
+    }
+    return t;
+}
+
+inline double sum(std::vector<double>& u) {
+    double t = 0;
+    for (std::vector<double>::iterator it = u.begin();
+            it != u.end(); ++it) {
+        t += *it;
+    }
+    return t;
 }
 
 /**
@@ -98,9 +115,20 @@ inline std::list<Node>::iterator randb(std::list<Node>& nodes) {
     return it;
 }
 
+
+
 Node rootBB1Tree(const int ** matrix, const unsigned dim);
 Node rootBBHung(const int ** matrix, const unsigned dim);
 Node rootBBLR(const int ** matrix, const unsigned dim, unsigned ub);
+
+void bnbHung(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix,
+        const unsigned dim, unsigned& lb, unsigned& ub, unsigned b);
+
+void bnb1Tree(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix,
+        const unsigned dim, unsigned& lb, unsigned& ub, unsigned b);
+
+void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix,
+        const unsigned dim, unsigned& lb, unsigned& ub, unsigned b);
 
 bool ** newBoolMatrix(const unsigned dim);
 bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k);
@@ -115,14 +143,18 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
 void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, 
         std::string strat);
 void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim);
-void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b = 0);
-void oneTree(Node& node, int ** matrix, const unsigned dim, bool ** sol1Tree, 
-        unsigned * degree);
-void prim(const unsigned dim, unsigned& cost, int ** graph, bool ** sol1Tree, 
+void lagrangean(Node& nodeCurr, double ** cMatrix, bool ** sol1Tree, const unsigned dim, 
+        unsigned ub);
+void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b = 0, 
+        unsigned x = 1);
+template<typename type>
+void oneTree(Node& node, type ** matrix, const unsigned dim, bool ** sol1Tree, 
         unsigned * degree);
 void printDegrees(unsigned * degree, const unsigned dim);
 void printNode(const Node& node);
 void resetBoolMatrix(bool ** matrix, const unsigned dim);
+void strategy(std::list<Node>::iterator (*curr)(std::list<Node>&), std::string& strat, 
+        unsigned b);
 void verifyCycle(std::vector<int> &sol, 
         std::vector< std::pair<int,int> > &cycleArrows, unsigned dim);
 
