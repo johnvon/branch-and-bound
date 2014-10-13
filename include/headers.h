@@ -120,7 +120,7 @@ inline std::list<Node>::iterator randb(std::list<Node>& nodes) {
 
 Node rootBB1Tree(const int ** matrix, const unsigned dim);
 Node rootBBHung(const int ** matrix, const unsigned dim);
-Node rootBBLR(const int ** matrix, const unsigned dim, unsigned ub);
+Node rootBBLR(const int ** matrix, const unsigned dim, unsigned& ub);
 
 void bnbHung(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix,
         const unsigned dim, unsigned& lb, unsigned& ub, unsigned b);
@@ -131,6 +131,7 @@ void bnb1Tree(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** 
 void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix,
         const unsigned dim, unsigned& lb, unsigned& ub, unsigned b);
 
+int cost(std::vector<int>& route, const int ** dMatrix);
 bool ** newBoolMatrix(const unsigned dim);
 bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k);
 bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub);
@@ -144,8 +145,8 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
 void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, 
         std::string strat);
 void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim);
-void lagrangean(Node& nodeCurr, double ** cMatrix, bool ** sol1Tree, const unsigned dim, 
-        unsigned ub);
+
+void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, bool ** sol1Tree, const unsigned dim, unsigned& ub);
 void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b = 0, 
         unsigned x = 1);
 template<typename type>
