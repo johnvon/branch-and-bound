@@ -23,8 +23,7 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
     LocalSearch l(matrix, dim);
 
     // upper-bound inicia
-    c.cheapestInsertion();
-    ub = tsp::cost(c.getRoute(), matrix); //l.ilsRvnd(c, 0, 2);
+    ub = l.ilsRvnd(c, 0, 2) + 10;
 
     switch(x) {
         case 0: // Hungaro
@@ -46,7 +45,8 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
             bnb1Tree(bestRoute, nodes, matrix, dim, lb, ub, b);
             break;
         case 2: // Lagrangeana
-            nodeCurr = rootBBLR(matrix,dim,ub);
+            nodeCurr = rootBBLR(matrix, dim, ub);
+            printNode(nodeCurr);
             if (isRootOptimal(nodeCurr, dim, lb, ub)) {
                 bestRoute = nodeCurr.route;
             } else {
@@ -379,6 +379,7 @@ void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** mat
         // seleciona (e retira da lista) no de acordo com estrategia
         itCurr = curr(nodes);
 //        printNode(*itCurr);
+//        std::cin >> i;
 
         // atualiza lower bound
         if (itCurr->cost > lb) {
@@ -405,7 +406,7 @@ void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** mat
             free<double>(lMatrix, dim);
 
             // se nao eh uma solucao viavel TSP (ciclo hamiltoniano) mas custo esta abaixo do UB
-            if (!isValidCH(nodeAux.route, dim) && nodeAux.cost <= ub) {
+            if (!isValidCH(nodeAux.route, dim) && nodeAux.cost < ub) {
                 nodes.push_back(nodeAux);
                 count++;
             } else { // solucao viavel e de menor custo, novo UB
@@ -640,16 +641,18 @@ std::vector<int> get1TreeVectorSolution(bool ** matrix, unsigned dim) {
 }
 
 void lagrangean(Node& nodeCurr, double ** cMatrix, bool ** sol1Tree, const unsigned dim, unsigned ub) {
-    double c = 0, e = 1.0;
+    double e = 1.0;
     unsigned i, j, iterator = 0;
     double * subgradient = new double[dim];
     unsigned * degree = new unsigned[dim];
+    Node node;
+    node.cost = 0;
 
     while (iterator < 5 && e > 0.001) {
         for (i = 0; i < dim; i++) {
             for (j = 0; j < dim; j++) {
                 if (cMatrix[i][j] != inf)
-                    cMatrix[i][j] += ( - nodeCurr.u[i] - nodeCurr.u[j]);
+                    cMatrix[i][j] = cMatrix[i][j] - nodeCurr.u[i] - nodeCurr.u[j];
             }
         }
 
@@ -657,8 +660,8 @@ void lagrangean(Node& nodeCurr, double ** cMatrix, bool ** sol1Tree, const unsig
 
         // solucao viavel
         if (!nodeCurr.route.empty()) {
+            node = nodeCurr;
             tsp::printVector<int>(nodeCurr.route);
-            c = nodeCurr.cost;
             break;
         }
 
@@ -667,15 +670,15 @@ void lagrangean(Node& nodeCurr, double ** cMatrix, bool ** sol1Tree, const unsig
             subgradient[i] = 2.0 - degree[i];
         }
 
-        nodeCurr.cost += 2*sum(nodeCurr.u);
+        nodeCurr.cost += (2.0 * sum(nodeCurr.u));
         // atualiza vetor de multiplicadores lagrangeanos
         for (i = 0; i < dim; i++) {
-            nodeCurr.u[i] += e * ((ub*1.0 - nodeCurr.cost) / sumsqr(subgradient, dim)) * subgradient[i];
+            nodeCurr.u[i] += e * (ub*1.0 - nodeCurr.cost) / sumsqr(subgradient, dim) * subgradient[i];
         }
 
         // atualiza passo se ha nao houve melhora
-        if (nodeCurr.cost > c) {
-            c = nodeCurr.cost; 
+        if (nodeCurr.cost > node.cost) {
+            node = nodeCurr;
             iterator = 0;
         } else {
             e *= 0.5;
@@ -683,7 +686,7 @@ void lagrangean(Node& nodeCurr, double ** cMatrix, bool ** sol1Tree, const unsig
         }
     }
 
-    nodeCurr.cost = c;
+    nodeCurr = node;
     delete[] degree;
     delete[] subgradient;
 }

@@ -42,6 +42,7 @@ inline bool isNewUB(Node& node, const unsigned dim, const unsigned ub) {
 inline bool isValidCH(std::vector<int>& cycle, const unsigned dim) {
     return cycle.size() == dim + 1;
 }
+
 inline double gap(const unsigned lb, const unsigned ub) {
     return (1.0 - lb*1.0/ub)*100;
 }
