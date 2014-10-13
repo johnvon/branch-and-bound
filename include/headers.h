@@ -62,7 +62,7 @@ inline void updateLB(std::list<Node>& nodes, unsigned& lb) {
 inline unsigned sumsqr(double * subgradient, const unsigned dim) {
     unsigned i, t = 0;
     for (i = 0; i < dim; i++) {
-        t += pow((2 - subgradient[i]), 2);
+        t += pow(subgradient[i], 2);
     }
     return t;
 }

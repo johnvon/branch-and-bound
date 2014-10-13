@@ -23,7 +23,7 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
     LocalSearch l(matrix, dim);
 
     // upper-bound inicia
-    ub = l.ilsRvnd(c, 0, 2) + 10;
+    ub = l.ilsRvnd(c, 0, 2);
 
     switch(x) {
         case 0: // Hungaro
@@ -91,7 +91,7 @@ Node rootBB1Tree(const int ** matrix, const unsigned dim) {
 Node rootBBLR(const int ** matrix, const unsigned dim, unsigned ub) {
     double ** dMatrix = copyMatrixFromTo<int,double>(const_cast<const int **>(matrix), dim);
     bool   ** sol1Tree = newBoolMatrix(dim);
-    
+
     Node nodeCurr;
     nodeCurr.n = 0;
     for (unsigned i = 0; i < dim; i++) {
@@ -340,7 +340,7 @@ void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** mat
     bool   ** sol1Tree = newBoolMatrix(dim);
     double ** dMatrix  = NULL, ** lMatrix = NULL, d = 0;
     time_t t0, t1, t2;
-    unsigned i, nBound;
+    unsigned i,j, nBound;
     unsigned long count = 0;
     std::list<Node>::iterator prev, it, itCurr;
 
@@ -378,8 +378,6 @@ void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** mat
         dMatrix = copyMatrixFromTo<int,double>(const_cast<const int **>(matrix), dim);
         // seleciona (e retira da lista) no de acordo com estrategia
         itCurr = curr(nodes);
-//        printNode(*itCurr);
-//        std::cin >> i;
 
         // atualiza lower bound
         if (itCurr->cost > lb) {
@@ -401,16 +399,25 @@ void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** mat
             d = dMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second];
             dMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second] = inf;
 
+            //            tsp::printMatrix(const_cast<const double **>(dMatrix), dim, 8);
             lMatrix = copyMatrixFromTo<double,double>(const_cast<const double **>(dMatrix), dim);
+            //            tsp::printMatrix(const_cast<const double **>(lMatrix), dim, 8);
+            //            std::cin >> j;
             lagrangean(nodeAux, lMatrix, sol1Tree, dim, ub);
+
+            if (!nodeAux.route.empty())  {
+                std::cout << 412 << " " << nodeAux.cost << " "<< ub << std::endl;;
+                tsp::printVector<int>(nodeAux.route);
+        }
             free<double>(lMatrix, dim);
 
             // se nao eh uma solucao viavel TSP (ciclo hamiltoniano) mas custo esta abaixo do UB
-            if (!isValidCH(nodeAux.route, dim) && nodeAux.cost < ub) {
+            if (!isValidCH(nodeAux.route, dim) && nodeAux.cost <= ub) {
                 nodes.push_back(nodeAux);
                 count++;
             } else { // solucao viavel e de menor custo, novo UB
                 if (isNewUB(nodeAux, dim, ub)) {
+                    std::cout << 423;
                     ub = nodeAux.cost;
                     bestRoute = nodeAux.route;
 
@@ -648,42 +655,61 @@ void lagrangean(Node& nodeCurr, double ** cMatrix, bool ** sol1Tree, const unsig
     Node node;
     node.cost = 0;
 
+//    std::cout << ub << std::endl;
+//    tsp::printMatrix(const_cast<const double **>(cMatrix), dim, 8);
+
     while (iterator < 5 && e > 0.001) {
+        oneTree<double>(nodeCurr, cMatrix, dim, sol1Tree, degree);
+
+     //        std::cout << nodeCurr.cost << std::endl;
+
+        // solucao viavel
+        if (!nodeCurr.route.empty()) {
+            std::cout << 668 << std::endl;
+            node = nodeCurr;
+            tsp::printVector<int>(nodeCurr.route);
+            break;
+        }
+        
+        // atualiza custo
+        nodeCurr.cost += (2.0 * sum(nodeCurr.u));
+
+
+
+        // atualiza gradiente
+        for (i = 0; i < dim; i++) {
+            subgradient[i] = 2.0 - degree[i];
+//            std::cout << subgradient[i] << " ";
+        }
+//        std::cout << std::endl;
+
+//        std::cout << "sumsqr = " << sumsqr(subgradient, dim) << std::endl;
+        // atualiza vetor de multiplicadores lagrangeanos
+        for (i = 0; i < dim; i++) {
+            nodeCurr.u[i] += e * ((ub - nodeCurr.cost) / sumsqr(subgradient, dim)) * subgradient[i];
+//            std::cout << nodeCurr.u[i] << " ";
+        }
+//        std::cout << std::endl;
+
+        // atualiza passo se ha nao houve melhora
+        if (nodeCurr.cost > node.cost) {
+//            std::cout << "melhor custo" << std::endl;
+            node = nodeCurr;
+            iterator = 0;
+        } else {
+            e *= 0.9;
+            iterator++;
+//            std::cout << "atualizando e: " << e << " iterator: " << iterator << std::endl;
+        }
+
+        // atualiza matriz de custo
         for (i = 0; i < dim; i++) {
             for (j = 0; j < dim; j++) {
                 if (cMatrix[i][j] != inf)
                     cMatrix[i][j] = cMatrix[i][j] - nodeCurr.u[i] - nodeCurr.u[j];
             }
         }
-
-        oneTree<double>(nodeCurr, cMatrix, dim, sol1Tree, degree);
-
-        // solucao viavel
-        if (!nodeCurr.route.empty()) {
-            node = nodeCurr;
-            tsp::printVector<int>(nodeCurr.route);
-            break;
-        }
-
-        // atualiza gradiente
-        for (i = 0; i < dim; i++) {
-            subgradient[i] = 2.0 - degree[i];
-        }
-
-        nodeCurr.cost += (2.0 * sum(nodeCurr.u));
-        // atualiza vetor de multiplicadores lagrangeanos
-        for (i = 0; i < dim; i++) {
-            nodeCurr.u[i] += e * (ub*1.0 - nodeCurr.cost) / sumsqr(subgradient, dim) * subgradient[i];
-        }
-
-        // atualiza passo se ha nao houve melhora
-        if (nodeCurr.cost > node.cost) {
-            node = nodeCurr;
-            iterator = 0;
-        } else {
-            e *= 0.5;
-            iterator++;
-        }
+//        tsp::printMatrix(const_cast<const double **>(cMatrix ), dim, 8);
     }
 
     nodeCurr = node;
@@ -762,6 +788,7 @@ void printNode(const Node& node) {
     for (unsigned i = 0; i < node.u.size(); i++) {
         std::cout << node.u[i] << " ";
     }
+    std::cout << std::endl;
 }
 
 void printDegrees(unsigned * degree, const unsigned dim) {
