@@ -408,7 +408,7 @@ void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** mat
             cMatrix[itCurr->arrows[i].first][itCurr->arrows[i].second] = inf;
 
             lMatrix = copyMatrixFromTo<int,double>(const_cast<const int **>(cMatrix), dim);
-            lagrangean(nodeAux, matrix, lMatrix, sol1Tree, dim, ub);
+            lagrangean(nodeAux, const_cast<const int **>(cMatrix), lMatrix, sol1Tree, dim, ub);
             free<double>(lMatrix, dim);
 
             // se nao eh uma solucao viavel TSP (ciclo hamiltoniano) mas custo esta abaixo do UB
@@ -656,7 +656,15 @@ void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, 
     Node node;
     node.cost = 0;
 
-    while (iterator < 5 && e > 0.001) {
+    while (iterator < 20 && e > 0.0001) {
+        for (i = 0; i < dim; i++) {
+            for (j = 0; j < dim; j++) {
+                if (cMatrix[i][j] != inf) {
+                    cMatrix[i][j] = originalMatrix[i][j];
+                }
+            }
+        }
+
         // atualiza matriz de custo
         for (i = 0; i < dim; i++) {
             for (j = 0; j < dim; j++) {
@@ -664,14 +672,15 @@ void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, 
                     cMatrix[i][j] = cMatrix[i][j] - nodeCurr.u[i] - nodeCurr.u[j];
             }
         }
+
         oneTree<double>(nodeCurr, cMatrix, dim, sol1Tree, degree);
 
         // solucao viavel
         if (!nodeCurr.route.empty()) {
+            std::cout << "viavel!" << std::endl;
             node = nodeCurr;
             c = cost(nodeCurr.route, originalMatrix);
             if (c < ub) {
-                node = nodeCurr;
                 ub = c;
             }
         }
@@ -755,10 +764,10 @@ template<typename type> void free(type ** matrix, const unsigned dim) {
 }
 
 void printNode(const Node& node) {
-    std::cout << std::endl << "Node " << &node << " " << node.n << ", cost: " << node.cost << std::endl;
-    std::cout << "Route " << &node.route << std::endl;
+    std::cout << std::endl << "Node " << node.n << ", cost: " << node.cost << std::endl;
+    std::cout << "Route " << std::endl;
     tsp::printRoute(node.route);
-    std::cout << "Arrows " << &node.arrows << std::endl;
+    std::cout << "Arrows " << std::endl;
     for (unsigned i = 0; i < node.arrows.size(); i++) {
         std::cout << node.arrows[i].first << " " << node.arrows[i].second << ", ";
     }
