@@ -47,6 +47,14 @@ inline double gap(const unsigned lb, const unsigned ub) {
     return (1.0 - lb*1.0/ub)*100;
 }
 
+inline unsigned cost(std::vector<int>& route, const int ** dMatrix) {
+    unsigned c = 0, i;
+    for (i = 1; i < route.size(); i++) {
+        c += dMatrix[route[i-1]][route[i]];
+    }
+    return c;
+}
+
 inline void updateLB(std::list<Node>& nodes, unsigned& lb) {
     unsigned min = inf;
     for (std::list<Node>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
@@ -57,6 +65,10 @@ inline void updateLB(std::list<Node>& nodes, unsigned& lb) {
     if (min != (unsigned) inf && min > lb) {
         lb = min;
     }
+}
+
+inline unsigned min(unsigned l, unsigned r) {
+    return (l < r) ? l : r;
 }
 
 inline unsigned sumsqr(double * subgradient, const unsigned dim) {
@@ -116,11 +128,9 @@ inline std::list<Node>::iterator randb(std::list<Node>& nodes) {
     return it;
 }
 
-
-
 Node rootBB1Tree(const int ** matrix, const unsigned dim);
 Node rootBBHung(const int ** matrix, const unsigned dim);
-Node rootBBLR(const int ** matrix, const unsigned dim, unsigned& ub);
+Node rootBBLR(const int ** matrix, const unsigned dim, unsigned ub);
 
 void bnbHung(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix,
         const unsigned dim, unsigned& lb, unsigned& ub, unsigned b);
@@ -131,7 +141,6 @@ void bnb1Tree(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** 
 void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix,
         const unsigned dim, unsigned& lb, unsigned& ub, unsigned b);
 
-int cost(std::vector<int>& route, const int ** dMatrix);
 bool ** newBoolMatrix(const unsigned dim);
 bool isFeasible(const unsigned dim, unsigned * degree, unsigned& k);
 bool isRootOptimal(Node& root, const unsigned dim, unsigned& lb, unsigned& ub);
@@ -145,8 +154,8 @@ void bnb(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matri
 void doLog(unsigned ub, unsigned lb, unsigned size, unsigned long count, 
         std::string strat);
 void hungarian(Node& nodeCurr, double ** matrix, const unsigned dim);
-
-void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, bool ** sol1Tree, const unsigned dim, unsigned& ub);
+void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, 
+        bool ** sol1Tree, const unsigned dim, unsigned ub);
 void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b = 0, 
         unsigned x = 1);
 template<typename type>

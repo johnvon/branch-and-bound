@@ -23,7 +23,7 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
     LocalSearch l(matrix, dim);
 
     // upper-bound inicia
-    ub = l.ilsRvnd(c, 0, 1) + 1;
+    ub = l.ilsRvnd(c, 0, 1);
 
     switch(x) {
         case 0: // Hungaro
@@ -46,6 +46,8 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
             break;
         case 2: // Lagrangeana
             nodeCurr = rootBBLR(matrix, dim, ub);
+            if (!nodeCurr.route.empty())
+                nodeCurr.cost = cost(nodeCurr.route, matrix);
             if (isRootOptimal(nodeCurr, dim, lb, ub)) {
                 bestRoute = nodeCurr.route;
             } else {
@@ -87,7 +89,7 @@ Node rootBB1Tree(const int ** matrix, const unsigned dim) {
     return nodeCurr;
 }
 
-Node rootBBLR(const int ** matrix, const unsigned dim, unsigned& ub) {
+Node rootBBLR(const int ** matrix, const unsigned dim, unsigned ub) {
     double ** dMatrix = copyMatrixFromTo<int,double>(const_cast<const int **>(matrix), dim);
     bool   ** sol1Tree = newBoolMatrix(dim);
 
@@ -333,14 +335,6 @@ void bnb1Tree(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** 
     free<bool>(sol1Tree, dim);
 }
 
-int cost(std::vector<int>& route, const int ** dMatrix) {
-    int c = 0;
-    for (unsigned i = 1; i < route.size(); i++) {
-        c += dMatrix[route[i-1]][route[i]];
-    }
-    return c;
-}
-
 void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** matrix,
         const unsigned dim, unsigned& lb, unsigned& ub, unsigned b) {
     Node nodeAux;
@@ -450,7 +444,6 @@ void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** mat
     free<bool>(sol1Tree, dim);
 
 }
-
 
 /**
  * Relaxacao pelo algoritmo hungaro para o problema do assignment
@@ -647,70 +640,59 @@ std::vector<int> get1TreeVectorSolution(bool ** matrix, unsigned dim) {
     return route;
 }
 
-void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, bool ** sol1Tree, const unsigned dim, unsigned& ub) {
-    double e = 1.0;
-    int c, u = ub;
-    unsigned i, j, iterator = 0;
-    double * subgradient = new double[dim];
-    unsigned * degree = new unsigned[dim];
-    Node node;
-    node.cost = 0;
+void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, bool ** sol1Tree, const unsigned dim, unsigned ub) {
+    Node nodeTemp;
+    double * subgradient = new double[dim], e = 1.0;
+    unsigned * degree = new unsigned[dim], i, j, counter = 0;
 
-    while (iterator < 20 && e > 0.0001) {
-        for (i = 0; i < dim; i++) {
-            for (j = 0; j < dim; j++) {
-                if (cMatrix[i][j] != inf) {
-                    cMatrix[i][j] = originalMatrix[i][j];
-                }
-            }
-        }
+    nodeTemp.cost = 0;
+    while (e > 0.001) {
 
-        // atualiza matriz de custo
+        // atualiza matrix com multiplicadores
         for (i = 0; i < dim; i++) {
             for (j = 0; j < dim; j++) {
                 if (cMatrix[i][j] != inf)
                     cMatrix[i][j] = cMatrix[i][j] - nodeCurr.u[i] - nodeCurr.u[j];
             }
         }
-
+        
+        // calcula 1-Tree
         oneTree<double>(nodeCurr, cMatrix, dim, sol1Tree, degree);
 
-        // solucao viavel
+        // atualiza custo da funcao objetivo com multiplicadores
+        nodeCurr.cost += 2 * sum(nodeCurr.u);
+
+        // solucao otima lagrange
         if (!nodeCurr.route.empty()) {
-            std::cout << "viavel!" << std::endl;
-            node = nodeCurr;
-            c = cost(nodeCurr.route, originalMatrix);
-            if (c < ub) {
-                ub = c;
-            }
+            tsp::printVector<int>(nodeCurr.route);
+            nodeTemp = nodeCurr; 
+            break;
         }
 
-        // atualiza custo
-        nodeCurr.cost += (2.0 * sum(nodeCurr.u));
-
-        // atualiza gradiente
+        // calcula subgradient
         for (i = 0; i < dim; i++) {
-            subgradient[i] = 2.0 - degree[i];
+            subgradient[i] = 2 - degree[i] * 1.0;
         }
 
-        // atualiza vetor de multiplicadores lagrangeanos
-        for (i = 0; i < dim; i++) {
-            nodeCurr.u[i] += e * ((u - nodeCurr.cost) / sumsqr(subgradient, dim)) * subgradient[i];
-        }
+        // atualiza multiplicadores
+        for (i = 0; i < dim; i++)
+            nodeCurr.u[i] += e * (subgradient[i]) * ((ub  - nodeCurr.cost ) / sumsqr(subgradient, dim) * 1.0);
 
-        // atualiza passo se ha nao houve melhora
-        if (nodeCurr.cost > node.cost) {
-            node = nodeCurr;
-            iterator = 0;
-        } else {
-            iterator++;
-            e *= 0.9;
-        }
+        // dual lagrange, max z(RLu)
+        if (nodeCurr.cost > nodeTemp.cost)
+            nodeTemp = nodeCurr, counter = 0;
+        else
+            counter++;
+
+        // atualiza passo
+        if (counter > 10)
+            e *= 0.5, counter = 0;
     }
 
-    nodeCurr = node;
-    delete[] degree;
+    nodeCurr = nodeTemp;
+
     delete[] subgradient;
+    delete[] degree;
 }
 
 // ##################
