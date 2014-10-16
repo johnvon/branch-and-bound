@@ -6,7 +6,7 @@
  * @date: 01/10/14
  */
 
-#include "../include/headers.h"
+#include "../include/bnb.h"
 
 /**
  * Avalia solucao inicial de assignment (raiz do b&b)
@@ -23,7 +23,7 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
     LocalSearch l(matrix, dim);
 
     // upper-bound inicia
-    ub = l.ilsRvnd(c, 0, 1) + 1;
+    ub = l.ilsRvnd(c, 0, 10) + 1;
 
     switch(x) {
         case 0: // Hungaro
@@ -702,7 +702,7 @@ void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, 
 
         // atualiza passo
         if (counter > 10)
-            e *= 0.9, counter = 0;
+            e *= 0.5, counter = 0;
     }
 
     // se nao for raiz e nao encontrou solucao viavel, usa o maior custo

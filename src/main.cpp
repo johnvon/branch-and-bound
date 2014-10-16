@@ -6,7 +6,7 @@
  * @date: 27/09/14
  */
 
-#include "../include/headers.h"
+#include "../include/bnb.h"
 
 #include <exception>
 #include <iostream>

@@ -6,8 +6,8 @@
  * @date: 09/29/2014
  */
 
-#ifndef HEADERS_H
-#define HEADERS_H
+#ifndef BNB_H 
+#define BNB_H 
 
 #include <iomanip>
 #include <iostream>
