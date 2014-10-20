@@ -38,9 +38,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    srand(time(NULL));
     Instance instance(file);
-
     try {
         instance.readInfo(tsp::TSP);
         instance.printInfo();
