@@ -678,8 +678,8 @@ void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, 
         nodeCurr.cost += 2 * sum(nodeCurr.u);
 
         // custo da relaxacao > ub, descarta no
-        if (nodeCurr.cost > ub)
-            break;
+//        if (nodeCurr.cost > ub)
+//            break;
 
         if (root && std::ceil(nodeCurr.cost) == ub) {
             std::cout << "(break raiz)custo fracionario ≃ UB" << nodeCurr.cost << std::endl;
