@@ -23,7 +23,7 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
     LocalSearch l(matrix, dim);
 
     // upper-bound inicia
-    ub = l.ilsRvnd(c, 0, 10) + 1;
+    ub = l.ilsRvnd(c, 0, 50) + 1;
 
     switch(x) {
         case 0: // Hungaro
