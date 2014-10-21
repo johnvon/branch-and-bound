@@ -23,7 +23,7 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
     LocalSearch l(matrix, dim);
 
     // upper-bound inicia
-    ub = l.ilsRvnd(c, 0, 50) + 1;
+    ub = l.ilsRvnd(c, 0) + 1;
 
     switch(x) {
         case 0: // Hungaro
@@ -62,9 +62,11 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
             bnbLR(bestRoute, nodes, matrix, dim, lb, ub, b);
             break;
     }
+    
 
     std::cout << "Rota (custo = " << tsp::cost(bestRoute, matrix) << ")" << std::endl;
     tsp::printVector<int>(bestRoute);
+
 }
 
 Node rootBBHung(const int ** matrix, const unsigned dim) {
@@ -428,7 +430,7 @@ void bnbLR(std::vector<int>& bestRoute, std::list<Node>& nodes, const int ** mat
 
                         nBound = 0;
                         for (it = nodes.begin(); it != nodes.end();) {
-                            if (it->cost > ub && it != itCurr) {
+                            if (it->cost >= ub && it != itCurr) {
                                 it = nodes.erase(it);
                                 nBound++;
                             } else {
@@ -674,6 +676,10 @@ void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, 
 
         // atualiza custo da funcao objetivo com multiplicadores
         nodeCurr.cost += 2 * sum(nodeCurr.u);
+
+        // custo da relaxacao > ub, descarta no
+        if (nodeCurr.cost > ub)
+            break;
 
         if (root && std::ceil(nodeCurr.cost) == ub) {
             std::cout << "(break raiz)custo fracionario ≃ UB" << nodeCurr.cost << std::endl;

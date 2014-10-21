@@ -13,10 +13,10 @@ CPPC = g++
 #### opcoes de compilacao e includes
 CCOPT      = -std=c++0x -g -fPIC -fexceptions -DIL_STD -Wall -O3
 TSPINCLUDE = $(TSPPARSERDIR)/include
-TSPLIB     = $(TSPPARSERDIR)/obj
+TSPLIB     = $(TSPPARSERDIR)/lib
 
 METAHINCLUDE = $(METAHDIR)/include
-METAHLIB     = $(METAHDIR)/obj
+METAHLIB     = $(METAHDIR)/lib
 
 CCFLAGS    = $(CCOPT) -I$(TSPINCLUDE) -I$(METAHINCLUDE) -L$(METAHLIB) -L$(TSPLIB)
 #############################
