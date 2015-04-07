@@ -23,7 +23,8 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
     LocalSearch l(matrix, dim);
 
     // upper-bound inicia
-    ub = l.ilsRvnd(c, 0) + 1;
+    //ub = l.ilsRvnd(c, 0) + 1;
+    ub = 10000;
 
     switch(x) {
         case 0: // Hungaro
@@ -62,7 +63,6 @@ void initBranchAndBound(const int ** matrix, const unsigned dim, unsigned b, uns
             bnbLR(bestRoute, nodes, matrix, dim, lb, ub, b);
             break;
     }
-    
 
     std::cout << "Rota (custo = " << tsp::cost(bestRoute, matrix) << ")" << std::endl;
     tsp::printVector<int>(bestRoute);
@@ -662,7 +662,7 @@ void lagrangean(Node& nodeCurr, const int ** originalMatrix, double ** cMatrix, 
     unsigned * degree = new unsigned[dim], i, j, counter = 0;
 
     nodeTemp.cost = 0;
-    while (e > 0.001) {
+    while (e > 0.01) {
         // atualiza matrix com multiplicadores
         for (i = 0; i < dim; i++) {
             for (j = 0; j < dim; j++) {
